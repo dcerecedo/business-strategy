@@ -20,12 +20,16 @@ Everything company-specific goes into the instance. Never write company facts in
    to test. This comes before any source capture: it tells you which evidence is worth collecting.
 6. For each open question, list the evidence that is missing and the framework that would answer it.
    Add those frameworks to `frameworks_active`. Missing evidence that would change a decision is a gap (rule 3).
-7. Run `python3 scripts/trace.py <target>` and fix anything it reports.
-8. Suggest `git init` and a first commit.
+7. Create the venv: `python3 -m venv <target>/.venv && <target>/.venv/bin/pip install -r <target>/requirements.txt`.
+   Tell the user to activate it (`source .venv/bin/activate`) before starting Claude Code in the instance.
+8. Run `<target>/.venv/bin/python <target>/scripts/trace.py <target>` and fix anything it reports.
+9. Suggest `git init` and a first commit.
 
 Then hand over to `ingest-source`, `apply-framework` and `record-decision`, in that order, one question at a time.
 
 ## Upgrade
 
 `python3 <this skill dir>/scaffold.py <target> --upgrade` overwrites `CLAUDE.md`, `.claude/rules/` and
-`scripts/`. It never touches configuration or content. Run `scripts/trace.py` afterwards.
+`scripts/`, and adds template files the instance lacks (such as `requirements.txt`) without overwriting any.
+It never touches configuration or content. Lines added to the template `.gitignore` do not reach an
+existing instance: show the user the difference. Run `scripts/trace.py` afterwards.

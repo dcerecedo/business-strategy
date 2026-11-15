@@ -5,8 +5,10 @@ Usage:
   python3 scaffold.py <target-dir> --company NAME [--unit NAME] [--language es]
   python3 scaffold.py <target-dir> --upgrade
 
-Create never overwrites an existing file. Upgrade overwrites only engine-owned files
-(CLAUDE.md, .claude/rules/, scripts/); configuration and content are never touched.
+Create never overwrites an existing file. Upgrade overwrites engine-owned files
+(CLAUDE.md, .claude/rules/, scripts/) and adds any other template file that is missing
+(for example requirements.txt), without overwriting it. Configuration and content
+(strategy.config.yaml, framing.md, strategy/) are never created or touched by an upgrade.
 """
 import argparse
 import shutil
@@ -15,6 +17,7 @@ from pathlib import Path
 
 TEMPLATES = Path(__file__).resolve().parent / "templates"
 ENGINE_OWNED = ("CLAUDE.md", ".claude/rules/", "scripts/")
+SEED_ONLY = ("strategy.config.yaml", "framing.md", "strategy/")
 CONTENT_DIRS = ["sources", "originals", "conclusions", "hypotheses", "decisions", "strategy", "reports"]
 
 
@@ -37,7 +40,7 @@ def main():
         rel = src.relative_to(TEMPLATES).as_posix()
         dst = a.target / rel
         owned = rel.startswith(ENGINE_OWNED)
-        if a.upgrade and not owned:
+        if a.upgrade and not owned and rel.startswith(SEED_ONLY):
             continue
         if dst.exists() and not (a.upgrade and owned):
             continue

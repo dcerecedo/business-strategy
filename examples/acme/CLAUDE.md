@@ -30,6 +30,18 @@ The core (framing, strategy, decisions, hypotheses) stays small. Evidence is onl
 8. Each iteration ends with a shorter core, not with more layers.
 9. Each analysis answers a framing question, not a template.
 
+## Setup
+
+`scripts/trace.py` needs PyYAML, installed in a venv inside the instance (ignored by git):
+
+```
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Activate the venv before starting Claude Code, so `python3` resolves to it.
+
 ## Working here
 
 - Keys, paths, IDs and status values are in English. Headings and prose use the configured language.

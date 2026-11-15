@@ -39,6 +39,7 @@ decisions/             D-NNN-slug.md
 strategy/              direction.md, OKR-YYYY.md
 reports/               impact-YYYYMMDD.md, written by scripts/trace.py
 scripts/trace.py       validation, alert propagation, budgets, reviews
+requirements.txt       PyYAML, installed in the instance .venv/
 CLAUDE.md, .claude/rules/   engine-owned, refreshed by init-instance --upgrade
 ```
 
@@ -47,11 +48,16 @@ in the language set in `strategy.config.yaml`.
 
 ## Check
 
+Each instance has its own venv for PyYAML, ignored by git:
+
 ```
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 python3 scripts/trace.py .
 ```
 
-Requires Python 3 and PyYAML. Exit code 1 on validation errors or a hard budget exceeded.
+Activate the venv before starting Claude Code in the instance, so the skills' `python3` is the venv's. Exit code 1 on validation errors or a hard budget exceeded.
 `examples/acme` is a fictional instance with seeded alerts to try it on.
 
 ## Obsidian

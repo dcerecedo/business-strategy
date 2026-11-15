@@ -6,7 +6,8 @@ alerts upwards (claim -> conclusion -> decision -> direction/OKR), checks budget
 review dates. Never changes a status: it writes reports/impact-YYYYMMDD.md.
 
 Usage: python3 scripts/trace.py <instance-dir> [--today YYYY-MM-DD]
-Exit 1 on validation errors or a hard budget exceeded. Requires PyYAML.
+Exit 1 on validation errors or a hard budget exceeded. Requires PyYAML: run it from the
+instance venv (see requirements.txt).
 """
 import argparse
 import datetime as dt
@@ -15,7 +16,11 @@ import sys
 from collections import defaultdict, deque
 from pathlib import Path
 
-import yaml
+try:
+    import yaml
+except ModuleNotFoundError:
+    sys.exit("PyYAML not found. Activate the instance venv (source .venv/bin/activate) "
+             "or create it: python3 -m venv .venv && .venv/bin/pip install -r requirements.txt")
 
 SKIP_DIRS = {"reports", "originals", "scripts", "node_modules"}
 LINK_FIELDS = ["supports", "against", "conclusions", "hypotheses", "decisions", "question", "supersedes"]
