@@ -1,0 +1,14 @@
+{
+  "name": "business-strategy",
+  "owner": {
+    "name": "Daniel Cerecedo"
+  },
+  "plugins": [
+    {
+      "name": "strategy-workspace",
+      "source": "./",
+      "description": "Decision-centred strategy workspace: sources, conclusions, decisions and direction with traceability back to literal evidence.",
+      "version": "0.1.0"
+    }
+  ]
+}

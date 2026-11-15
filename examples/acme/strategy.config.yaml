@@ -1,0 +1,33 @@
+# Instance configuration. Everything specific to this company lives here or in the content folders.
+company:
+  name: "Acme Shifts"
+  unit: ""
+  description: ""
+language: en        # language of headings and prose; keys, paths and IDs stay in English
+users: []                # the people who maintain this instance
+segments: []
+
+# Only the frameworks the open questions need. Catalog: skills/apply-framework/frameworks.md
+frameworks_active: [jtbd, porter]
+
+# [soft, hard]. Soft warns in the report; hard fails scripts/trace.py.
+budgets:
+  open_questions: [5, 7]
+  live_decisions: [7, 12]
+  hypotheses_per_decision: [3, 5]
+  conclusions_per_framework: [5, 8]
+
+# Default months until review, by kind.
+review_months:
+  source_market: 6
+  source_structural: 12
+  conclusion: 6
+  decision: 6
+
+# External signals: derived from the review signals of live decisions.
+signals:
+  inbox: ""
+  alerts: []
+
+# Where each hypothesis metric comes from and who reviews it.
+metric_sources: {}
