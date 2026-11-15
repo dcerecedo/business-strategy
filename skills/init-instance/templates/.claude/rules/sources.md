@@ -23,7 +23,11 @@ original: originals/S-20261115-short-slug.pdf
 - Extract only claims that bear on a decision or an open question (rule 1).
 - Confidence is high, medium or low by source and method, never by convenience.
 - An internal opinion is a source with `origin: internal, <person>`; low confidence unless it brings data.
-- Keep a copy of the original in `originals/` so quotes can be verified if the URL changes.
+- Keep a copy of the original in `originals/` so quotes can be verified if the URL changes: the file
+  as served (PDF, HTML), not an extract. `scripts/trace.py` checks every quote against it.
+- Every value in a `DATA:` line is readable in the original of the same source.
+- A price states currency, tax (included, excluded or not stated), date and scope (material or installed).
+- A comparison between two sources quotes the fragments it compares.
 - A new claim that clashes with or backs an existing one adds
   `(contradicts:: [[S-...#^c01]])` or `(confirms:: [[S-...#^c01]])`.
 - `review` defaults from `review_months` in the configuration.

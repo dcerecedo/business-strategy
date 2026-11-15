@@ -9,7 +9,7 @@ Candidates, not a route. An instance activates only what its open questions need
 | `sizing` | How big is the reachable market? | `method` (bottom_up), `tam`, `sam`, `som` (currency per year) | Bottom-up only. Every input figure cited, the arithmetic in the body. |
 | `value_chain` | Where do we create cost or differentiation in operations? | `activity`, `effect` (cost, differentiation), `compared_with` | Always against a named competitor. |
 | `unit_economics` | Does the model pay for itself? | `segment`, `cac`, `ltv`, `gross_margin`, `payback_months` | Figures from internal data sources, each one a `DATA:` claim. |
-| `seven_powers` | What makes the advantage last? | `power`, `benefit`, `barrier` | No power without both a cited benefit and a cited barrier. |
+| `seven_powers` | What makes the advantage last? | `power`, `benefit`, `barrier` (both lists of claim links) | Check all seven powers in the session; write a conclusion only for those with a cited benefit. A power is shown only with a cited barrier; with `barrier: []` the title says it is not shown. Counter-positioning is about a business model the incumbent cannot copy without harming itself, not a technology. |
 | `pestel` | Which outside change affects a segment? On demand only. | `factor`, `horizon_years` | Only factors with an effect on a named segment. |
 | `positioning` | How do customers tell alternatives apart? On demand only. | `axis_x`, `axis_y` | Axes are the criteria customers use to choose, with a claim for each. |
 | `wardley` | What should we build, buy or wait for? On demand only. | `component`, `stage`, `movement` | The stage carries a claim; the movement is the conclusion. |

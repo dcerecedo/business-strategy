@@ -5,6 +5,7 @@
 | Strategic question | Block in `framing.md` | root | `framing#^q02` |
 | Source | File | `sources/` | `S-20261115-short-slug` |
 | Claim | Block in its source | `sources/` | `S-20261115-short-slug#^c01` |
+| Gap | Block in `framing.md` | root | `framing#^g01` |
 | Conclusion | File | `conclusions/` | `C-porter-03` |
 | Decision | File | `decisions/` | `D-007-short-slug` |
 | Hypothesis | File | `hypotheses/` | `H-012-short-slug` |
