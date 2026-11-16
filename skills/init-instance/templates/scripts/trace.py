@@ -1,20 +1,26 @@
 #!/usr/bin/env python3
 """Traceability check for a strategy workspace instance.
 
-Reads the same wikilinks and properties Obsidian uses. Validates links, propagates
+Reads the same wikilinks and properties Obsidian uses. Validates links, sources and their
+originals, literal quotes against the original, framework fields and gaps; propagates
 alerts upwards (claim -> conclusion -> decision -> direction/OKR), checks budgets and
 review dates. Never changes a status: it writes reports/impact-YYYYMMDD.md.
 
 Usage: python3 scripts/trace.py <instance-dir> [--today YYYY-MM-DD]
 Exit 1 on validation errors or a hard budget exceeded. Requires PyYAML: run it from the
-instance venv (see requirements.txt).
+instance venv (see requirements.txt). Quotes in PDFs need pdftotext (poppler-utils);
+without it they are listed as not checked.
 """
 import argparse
 import datetime as dt
 import re
+import shutil
+import subprocess
 import sys
+import unicodedata
 from collections import defaultdict, deque
-from pathlib import Path
+from html.parser import HTMLParser
+from pathlib import Path, PurePosixPath
 
 try:
     import yaml
@@ -23,7 +29,8 @@ except ModuleNotFoundError:
              "or create it: python3 -m venv .venv && .venv/bin/pip install -r requirements.txt")
 
 SKIP_DIRS = {"reports", "originals", "scripts", "node_modules"}
-LINK_FIELDS = ["supports", "against", "conclusions", "hypotheses", "decisions", "question", "supersedes"]
+LINK_FIELDS = ["supports", "against", "conclusions", "hypotheses", "decisions", "question", "supersedes",
+               "benefit", "barrier"]
 LINK = re.compile(r"\[\[([^\]#|]+)(?:#\^?([^\]|]+))?(?:\|[^\]]*)?\]\]")
 BLOCK = re.compile(r"^\s*[-*]\s+(.*?)\s*\^([\w-]+)\s*$")
 INLINE = re.compile(r"\((\w+)::\s*([^)]*)\)")
@@ -31,7 +38,29 @@ NUMBERED = re.compile(r"^([DH])-(\d+)")
 LIVE = {"proposed", "active", "under_review"}
 ROOT_TYPES = {"decision", "okr", "direction", "framing"}
 DEFAULT_BUDGETS = {"open_questions": [5, 7], "live_decisions": [7, 12],
-                   "hypotheses_per_decision": [3, 5], "conclusions_per_framework": [5, 8]}
+                   "hypotheses_per_decision": [3, 5], "conclusions_per_framework": [5, 8],
+                   "vital_gaps_per_question": [3, 5]}
+# Extra frontmatter per framework, as in skills/apply-framework/frameworks.md.
+FRAMEWORK_KEYS = {
+    "porter": ["force", "intensity", "segment"],
+    "jtbd": ["segment", "job", "current_alternative"],
+    "sizing": ["method", "tam", "sam", "som"],
+    "value_chain": ["activity", "effect", "compared_with"],
+    "unit_economics": ["segment", "cac", "ltv", "gross_margin", "payback_months"],
+    "seven_powers": ["power", "benefit", "barrier"],
+    "pestel": ["factor", "horizon_years"],
+    "positioning": ["axis_x", "axis_y"],
+    "wardley": ["component", "stage", "movement"],
+}
+SOURCE_REQUIRED = ["origin", "captured", "review"]
+GAP_ORIGINS = ["internal", "customer", "installer", "purchase", "manual"]
+CHARS = str.maketrans({"\u201c": '"', "\u201d": '"', "\u201e": '"', "\u201f": '"',
+                       "\u2018": "'", "\u2019": "'", "\u201a": "'", "\u201b": "'", "\u00a0": " ",
+                       "\ufb00": "ff", "\ufb01": "fi", "\ufb02": "fl", "\ufb03": "ffi", "\ufb04": "ffl"})
+SOFT_HYPHEN = re.compile("\u00ad\\s*")
+SPACES = re.compile(r"\s+")
+HYPHEN_BREAK = re.compile(r"(\w)-\s*\n\s*(\w)")
+UNCLOSED = object()
 ORDER = {"okr": 0, "direction": 1, "decision": 2, "conclusion": 3, "hypothesis": 4}
 
 
@@ -54,6 +83,74 @@ def links(value):
 
 def show(ref):
     return f"[[{ref.replace('#', '#^')}]]"
+
+
+def normalize(text):
+    text = SOFT_HYPHEN.sub("", unicodedata.normalize("NFC", text))
+    return SPACES.sub(" ", text.translate(CHARS)).strip()
+
+
+def quote_of(text):
+    """The quoted text of a claim, None if it is not a quote, UNCLOSED if it opens one and never closes it."""
+    m = INLINE.search(text)
+    head = (text[:m.start()] if m else text).strip()
+    if not head or head[0] not in "\"\u201c":
+        return None
+    return head[1:-1] if len(head) > 1 and head[-1] in "\"\u201d" else UNCLOSED
+
+
+class _HTMLText(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.parts, self.skip = [], 0
+
+    # Every tag becomes a space so that adjacent blocks (</p><p>) do not glue words together.
+    def handle_starttag(self, tag, attrs):
+        if tag in ("script", "style"):
+            self.skip += 1
+        self.parts.append(" ")
+
+    def handle_endtag(self, tag):
+        if tag in ("script", "style") and self.skip:
+            self.skip -= 1
+        self.parts.append(" ")
+
+    def handle_data(self, data):
+        if not self.skip:
+            self.parts.append(data)
+
+
+def read_original(path):
+    """(text, None) or (None, why it cannot be read)."""
+    suffix = path.suffix.lower()
+    if suffix == ".pdf":
+        exe = shutil.which("pdftotext")
+        if not exe:
+            return None, "pdftotext not installed"
+        # No -layout: it interleaves the columns of two-column documents.
+        run = subprocess.run([exe, "-enc", "UTF-8", str(path), "-"], capture_output=True)
+        if run.returncode:
+            why = (run.stderr.decode("utf-8", "replace").strip().splitlines() or [f"exit {run.returncode}"])[0]
+            return None, f"pdftotext failed: {why}"
+        return run.stdout.decode("utf-8", "replace"), None
+    if suffix in (".html", ".htm"):
+        parser = _HTMLText()
+        parser.feed(path.read_text(encoding="utf-8", errors="replace"))
+        parser.close()
+        return "".join(parser.parts), None
+    if suffix in (".md", ".txt"):
+        return path.read_text(encoding="utf-8", errors="replace"), None
+    return None, "unsupported extension"
+
+
+def readings(path):
+    """Normalized texts a quote may match, or ((), why the original cannot be read).
+
+    The second reading joins words split by a hyphen at the end of a line."""
+    raw, why = read_original(path)
+    if why:
+        return (), why
+    return (normalize(raw), normalize(HYPHEN_BREAK.sub(r"\1\2", raw))), None
 
 
 def load(vault):
@@ -82,8 +179,99 @@ def load(vault):
                 key = f"{p.stem}#{m.group(2)}"
                 if key in blocks:
                     errors.append(f"duplicate block id `^{m.group(2)}` in `{rel}`")
-                blocks[key] = {"parent": p.stem, "fields": dict(INLINE.findall(m.group(1)))}
+                blocks[key] = {"parent": p.stem, "text": m.group(1),
+                               "fields": {k: v.strip() for k, v in INLINE.findall(m.group(1))}}
     return nodes, blocks, errors
+
+
+def check_sources(vault, nodes, errors):
+    """Validate source fields and originals. Returns {source: original path} for readable originals."""
+    readable, referenced = {}, set()
+    for n, fm in nodes.items():
+        if fm.get("type") != "source":
+            continue
+        for field in SOURCE_REQUIRED:
+            if not str(fm.get(field) or "").strip():
+                errors.append(f"[[{n}]] is missing the `{field}` field")
+        original = str(fm.get("original") or "").strip()
+        if not original:
+            if str(fm.get("url") or "").strip():
+                errors.append(f"[[{n}]] has a `url` but no `original`: quotes cannot be checked")
+            continue
+        rel = PurePosixPath(original)
+        referenced.add(rel.as_posix())
+        if rel.is_absolute() or len(rel.parts) < 2 or rel.parts[0] != "originals" or ".." in rel.parts:
+            errors.append(f"[[{n}]] `original` must be under `originals/`")
+        elif not (vault / rel).is_file():
+            errors.append(f"[[{n}]] `original` points to `{original}`, which does not exist")
+        else:
+            readable[n] = original
+            if rel.stem != n:
+                errors.append(f"[[{n}]] `original` is `{original}`: its name must be `{n}` plus an extension")
+    folder = vault / "originals"
+    for p in sorted(folder.rglob("*")) if folder.is_dir() else []:
+        inner = p.relative_to(folder)
+        if not p.is_file() or any(part.startswith(".") for part in inner.parts):
+            continue
+        rel = p.relative_to(vault).as_posix()
+        extract = p.suffix == ".txt" and nodes.get(p.stem, {}).get("type") == "source"
+        if rel not in referenced and not extract:
+            errors.append(f"`{rel}` is not the `original` of any source")
+    return readable
+
+
+def check_quotes(vault, nodes, blocks, originals, errors):
+    """Check every literal quote against its original. Returns the manual and unchecked report lines."""
+    manual, unchecked, texts = [], [], {}
+    for key, b in blocks.items():
+        source = b["parent"]
+        if nodes[source].get("type") != "source":
+            continue
+        quote = quote_of(b["text"])
+        if quote is None:
+            continue
+        if quote is UNCLOSED:
+            errors.append(f"{show(key)} starts with a quote but does not close it before its fields")
+            continue
+        original = originals.get(source)
+        if not original:
+            if not nodes[source].get("original"):
+                unchecked.append(f"- {show(key)}: no original")
+            continue
+        if source not in texts:
+            texts[source] = readings(vault / original)
+        candidates, why = texts[source]
+        if why:
+            unchecked.append(f"- {show(key)} `{original}`: {why}")
+        elif not any(normalize(quote) in text for text in candidates):
+            if b["fields"].get("verified") == "manual":
+                manual.append(f"- {show(key)} in `{original}`")
+            else:
+                errors.append(f"{show(key)} quote not found in `{original}`")
+    return manual, unchecked
+
+
+def check_gaps(blocks, kind, exists, errors):
+    """Validate gaps in framing.md. Returns the number of vital gaps per question."""
+    vital = defaultdict(int)
+    for key, b in blocks.items():
+        if kind(b["parent"]) != "framing" or not key.split("#")[1].startswith("g"):
+            continue
+        fields = b["fields"]
+        questions = list(links(fields.get("question")))
+        if not questions:
+            errors.append(f"{show(key)} has no `question`")
+        for dest in questions:
+            if not exists(dest):
+                errors.append(f"{show(key)} `question` points to `{dest}`, which does not exist")
+            elif fields.get("priority") == "vital":
+                vital[dest] += 1
+        origin = fields.get("origin")
+        if not origin:
+            errors.append(f"{show(key)} has no `origin`")
+        elif origin not in GAP_ORIGINS:
+            errors.append(f"{show(key)} `origin` is `{origin}`: expected {', '.join(GAP_ORIGINS[:-1])} or {GAP_ORIGINS[-1]}")
+    return vital
 
 
 def main():
@@ -128,12 +316,20 @@ def main():
                 errors.append(f"[[{n}]] is missing the `against` field")
             if not list(links(fm.get("question"))):
                 errors.append(f"[[{n}]] is not tied to a framing question (rule 9)")
+            for key in FRAMEWORK_KEYS.get(str(fm.get("framework")), []):
+                if key not in fm:
+                    errors.append(f"[[{n}]] is missing the `{key}` field (framework {fm.get('framework')})")
+            if fm.get("framework") == "seven_powers" and "benefit" in fm and not list(links(fm.get("benefit"))):
+                errors.append(f"[[{n}]] has an empty `benefit`: a power needs a cited benefit")
         if t == "hypothesis" and not (fm.get("metric") and fm.get("threshold")):
             errors.append(f"[[{n}]] has no metric and threshold: it is an assumption, not a hypothesis")
     for key, b in blocks.items():
         if kind(b["parent"]) == "framing" and b["fields"].get("status") == "answered":
             if not list(links(b["fields"].get("answered_by"))):
                 errors.append(f"{show(key)} is answered but names no decision in `answered_by`")
+    originals = check_sources(vault, nodes, errors)
+    manual, unchecked = check_quotes(vault, nodes, blocks, originals, errors)
+    vital = check_gaps(blocks, kind, exists, errors)
 
     # Alert seeds
     seeds = []
@@ -187,6 +383,8 @@ def main():
             per_fw[str(f.get("framework"))] += 1
     for fw, n in sorted(per_fw.items()):
         budget(f"Conclusions for {fw}", n, "conclusions_per_framework")
+    for dest, n in sorted(vital.items()):
+        budget(f"Vital gaps for {show(dest)}", n, "vital_gaps_per_question")
 
     # Reviews: only what a live decision relies on is reviewed; the rest is archived (rule 7)
     claimed, stack = set(), list(live)
@@ -209,6 +407,8 @@ def main():
     out = [f"# Impact report {today}", "",
            "Generated by `scripts/trace.py`. It changes no status: a person decides.", "",
            "## Validation", ""] + ([f"- {e}" for e in errors] or ["No errors."]) + [
+           "", "## Quotes verified manually", ""] + (manual or ["None."]) + [
+           "", "## Quotes not checked automatically", ""] + (unchecked or ["None."]) + [
            "", "## Affected", "", "| Item | Type | Reason | Path |", "| --- | --- | --- | --- |"]
     for n in sorted(affected, key=lambda k: (ORDER.get(kind(k), 9), k)):
         out += [f"| [[{n}]] | {kind(n)} | {reason} | {path} |" for reason, path in affected[n]]
