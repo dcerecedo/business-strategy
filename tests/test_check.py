@@ -5,6 +5,7 @@ import shutil
 import pytest
 import yaml
 
+import check_diagnosis
 import check_evidence
 import check_traceability
 from conftest import DROP, FIXTURES, ROOT, Instance, hide_pdftotext
@@ -542,7 +543,7 @@ def test_four_vital_gaps_default_hard_limit(instance):
 def test_config_budgets_match_defaults(config):
     # The template has {{placeholders}} that are not valid YAML.
     text = re.sub(r"\{\{\w+\}\}", "x", config.read_text(encoding="utf-8"))
-    assert yaml.safe_load(text)["budgets"] == check_traceability.DEFAULT_BUDGETS
+    assert yaml.safe_load(text)["budgets"] == {**check_traceability.DEFAULT_BUDGETS, **check_diagnosis.DEFAULT_BUDGETS}
 
 
 # 4. Quoted fragments in DATA lines

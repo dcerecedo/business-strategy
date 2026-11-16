@@ -5,7 +5,7 @@ company:
   description: ""
 language: {{language}}        # language of headings and prose; keys, paths and IDs stay in English
 users: []                # the people who maintain this instance
-segments: []
+# Segments are entities in diagnosis/market/, not configuration.
 
 # Only the frameworks the open questions need. Catalog: skills/apply-framework/frameworks.md
 frameworks_active: []
@@ -17,6 +17,8 @@ budgets:
   hypotheses_per_decision: [3, 5]
   conclusions_per_framework: [5, 8]
   vital_gaps_per_question: [3, 3]
+  findings_per_area: [3, 5]     # diagnosis findings not retired, per area
+  entities_per_area: [5, 8]     # offering and ecosystem only
 
 # Default months until review, by kind.
 review_months:
@@ -24,6 +26,9 @@ review_months:
   source_structural: 12
   conclusion: 6
   decision: 6
+  area_context: 6       # diagnosis areas; game.md uses the shorter of the two
+  area_company: 12
+  entity: 6
 
 # External signals: derived from the review signals of live decisions.
 signals:

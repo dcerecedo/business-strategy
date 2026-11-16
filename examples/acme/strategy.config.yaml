@@ -17,6 +17,8 @@ budgets:
   hypotheses_per_decision: [3, 5]
   conclusions_per_framework: [5, 8]
   vital_gaps_per_question: [3, 3]
+  findings_per_area: [3, 5]     # diagnosis findings not retired, per area
+  entities_per_area: [5, 8]     # offering and ecosystem only
 
 # Default months until review, by kind.
 review_months:

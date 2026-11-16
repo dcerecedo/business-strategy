@@ -23,7 +23,7 @@ original: originals/S-20261115-short-slug.pdf
   from where.
 - Where the quote is in the original goes in `(locator:: ...)`, never as text after the quote.
 - A quote that is not in the text layer and was checked on a page image adds `(verified:: manual)`.
-- Extract only claims that bear on a decision or an open question (rule 1).
+- Extract only claims that bear on a decision, an open question or a diagnosis area (rule 1).
 - Confidence is high, medium or low by source and method, never by convenience.
 - An internal opinion is a source with `origin: internal, <person>`; low confidence unless it brings data.
 - Keep a copy of the original in `originals/` so quotes can be verified if the URL changes: the file
