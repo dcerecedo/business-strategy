@@ -2,9 +2,12 @@
 """Traceability check for a strategy workspace instance.
 
 Reads the same wikilinks and properties Obsidian uses. Validates links, sources and their
-originals, literal quotes against the original, framework fields and gaps; propagates
-alerts upwards (claim -> conclusion -> decision -> direction/OKR), checks budgets and
-review dates. Never changes a status: it writes reports/impact-YYYYMMDD.md.
+originals (the file as served when there is a url), literal quotes and quoted fragments of
+DATA lines against the original, framework fields, benefit/against overlap and gap ids;
+warns about quotes cut before a condition, DATA values not found in the original and claims
+no conclusion uses; propagates alerts upwards (claim -> conclusion -> decision ->
+direction/OKR), checks budgets and review dates. Never changes a status: it writes
+reports/impact-YYYYMMDD.md.
 
 Usage: python3 scripts/trace.py <instance-dir> [--today YYYY-MM-DD]
 Exit 1 on validation errors or a hard budget exceeded. Requires PyYAML: run it from the
@@ -39,7 +42,7 @@ LIVE = {"proposed", "active", "under_review"}
 ROOT_TYPES = {"decision", "okr", "direction", "framing"}
 DEFAULT_BUDGETS = {"open_questions": [5, 7], "live_decisions": [7, 12],
                    "hypotheses_per_decision": [3, 5], "conclusions_per_framework": [5, 8],
-                   "vital_gaps_per_question": [3, 5]}
+                   "vital_gaps_per_question": [3, 3]}
 # Extra frontmatter per framework, as in skills/apply-framework/frameworks.md.
 FRAMEWORK_KEYS = {
     "porter": ["force", "intensity", "segment"],
@@ -53,12 +56,22 @@ FRAMEWORK_KEYS = {
     "wardley": ["component", "stage", "movement"],
 }
 SOURCE_REQUIRED = ["origin", "captured", "review"]
+SERVED = {".pdf", ".html", ".htm"}
 GAP_ORIGINS = ["internal", "customer", "installer", "purchase", "manual"]
 CHARS = str.maketrans({"\u201c": '"', "\u201d": '"', "\u201e": '"', "\u201f": '"',
                        "\u2018": "'", "\u2019": "'", "\u201a": "'", "\u201b": "'", "\u00a0": " ",
                        "\ufb00": "ff", "\ufb01": "fi", "\ufb02": "fl", "\ufb03": "ffi", "\ufb04": "ffl"})
 SOFT_HYPHEN = re.compile("\u00ad\\s*")
 SPACES = re.compile(r"\s+")
+SPACE_BEFORE = re.compile(r" ([,.;:)\]])")
+SPACE_AFTER = re.compile(r"([(\[]) ")
+FRAGMENT = re.compile(r'"([^"]+)"|\u201c([^\u201d]+)\u201d|\u00ab([^\u00bb]+)\u00bb')
+NUMBER = re.compile(r"\d[\d.,]*\d|\d")
+ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+CONDITION = re.compile(r", (en cuyo caso|siempre que|excepto|salvo|cuando|a condición de"
+                       r"|in which case|provided that|except|unless|when)\b")
+LIST_ITEM = re.compile(r"^[-*]\s+(.*)$")
+GAP_ID = re.compile(r"g\d{2,}")
 HYPHEN_BREAK = re.compile(r"(\w)-\s*\n\s*(\w)")
 UNCLOSED = object()
 ORDER = {"okr": 0, "direction": 1, "decision": 2, "conclusion": 3, "hypothesis": 4}
@@ -87,7 +100,8 @@ def show(ref):
 
 def normalize(text):
     text = SOFT_HYPHEN.sub("", unicodedata.normalize("NFC", text))
-    return SPACES.sub(" ", text.translate(CHARS)).strip()
+    text = SPACES.sub(" ", text.translate(CHARS)).strip()
+    return SPACE_AFTER.sub(r"\1", SPACE_BEFORE.sub(r"\1", text))
 
 
 def quote_of(text):
@@ -97,6 +111,31 @@ def quote_of(text):
     if not head or head[0] not in "\"\u201c":
         return None
     return head[1:-1] if len(head) > 1 and head[-1] in "\"\u201d" else UNCLOSED
+
+
+def data_parts(text):
+    """Quoted fragments of three words or more and numbers of a DATA line, ignoring its fields."""
+    body = INLINE.sub(" ", text)
+    fragments = [f for m in FRAGMENT.finditer(body) for f in m.groups() if f and len(f.split()) >= 3]
+    numbers = list(dict.fromkeys(NUMBER.findall(ISO_DATE.sub(" ", body))))
+    return fragments, numbers
+
+
+def has_number(text, number):
+    return re.search(rf"(?<!\d)(?<!\d[.,]){re.escape(number)}(?![.,]?\d)", text) is not None
+
+
+def cut_after(text, quote):
+    """The 15 words after the first occurrence of `quote` followed by a condition, or None."""
+    start = text.find(quote)
+    while start >= 0:
+        tail = text[start + len(quote):]
+        if quote.endswith(","):
+            tail = "," + tail
+        if CONDITION.match(tail):
+            return " ".join(tail[2:].split()[:15])
+        start = text.find(quote, start + 1)
+    return None
 
 
 class _HTMLText(HTMLParser):
@@ -173,7 +212,16 @@ def load(vault):
             errors.append(f"duplicate file name `{p.stem}` (`{rel}`): wikilinks become ambiguous")
             continue
         nodes[p.stem] = fm if isinstance(fm, dict) else {}
+        in_gaps = False
         for line in text.splitlines():
+            if rel.as_posix() == "framing.md":
+                if line.startswith("#"):
+                    in_gaps = line.strip() == "## Gaps"
+                item = LIST_ITEM.match(line) if in_gaps else None
+                if item:
+                    block = BLOCK.match(line)
+                    if not block or not GAP_ID.fullmatch(block.group(2)):
+                        errors.append(f"`framing.md` has a gap without a `^gNN` id: {item.group(1)[:60]}")
             m = BLOCK.match(line)
             if m:
                 key = f"{p.stem}#{m.group(2)}"
@@ -206,6 +254,8 @@ def check_sources(vault, nodes, errors):
             errors.append(f"[[{n}]] `original` points to `{original}`, which does not exist")
         else:
             readable[n] = original
+            if str(fm.get("url") or "").strip() and rel.suffix.lower() not in SERVED:
+                errors.append(f"[[{n}]] has a `url` but its `original` is not the file as served (.pdf, .html)")
             if rel.stem != n:
                 errors.append(f"[[{n}]] `original` is `{original}`: its name must be `{n}` plus an extension")
     folder = vault / "originals"
@@ -221,21 +271,30 @@ def check_sources(vault, nodes, errors):
 
 
 def check_quotes(vault, nodes, blocks, originals, errors):
-    """Check every literal quote against its original. Returns the manual and unchecked report lines."""
-    manual, unchecked, texts = [], [], {}
+    """Check quotes, quoted DATA fragments and DATA values against the original.
+
+    Returns the manual, unchecked, cut and DATA values report lines."""
+    manual, unchecked, cut, values, texts = [], [], [], [], {}
     for key, b in blocks.items():
         source = b["parent"]
         if nodes[source].get("type") != "source":
             continue
-        quote = quote_of(b["text"])
-        if quote is None:
-            continue
+        quote, numbers, error = quote_of(b["text"]), [], "quote not found"
         if quote is UNCLOSED:
             errors.append(f"{show(key)} starts with a quote but does not close it before its fields")
             continue
+        if quote is not None:
+            targets = [quote]
+        elif b["text"].lstrip().startswith("DATA:"):
+            targets, numbers = data_parts(b["text"])
+            error = "quoted fragment not found"
+        else:
+            continue
+        if not targets and not numbers:
+            continue
         original = originals.get(source)
         if not original:
-            if not nodes[source].get("original"):
+            if targets and not nodes[source].get("original"):
                 unchecked.append(f"- {show(key)}: no original")
             continue
         if source not in texts:
@@ -243,12 +302,24 @@ def check_quotes(vault, nodes, blocks, originals, errors):
         candidates, why = texts[source]
         if why:
             unchecked.append(f"- {show(key)} `{original}`: {why}")
-        elif not any(normalize(quote) in text for text in candidates):
+            continue
+        found = {}
+        for target in targets:
+            q = normalize(target)
+            found[target] = next((text for text in candidates if q in text), None)
+        if any(text is None for text in found.values()):
             if b["fields"].get("verified") == "manual":
                 manual.append(f"- {show(key)} in `{original}`")
             else:
-                errors.append(f"{show(key)} quote not found in `{original}`")
-    return manual, unchecked
+                errors.append(f"{show(key)} {error} in `{original}`")
+        tails = [cut_after(text, normalize(t)) for t, text in found.items() if text is not None]
+        tail = next((t for t in tails if t), None)
+        if tail:
+            cut.append(f'- {show(key)} in `{original}`: "{tail}"')
+        missing = [n for n in numbers if not any(has_number(text, n) for text in candidates)]
+        if missing:
+            values.append(f"- {show(key)} in `{original}`: {', '.join(missing)}")
+    return manual, unchecked, cut, values
 
 
 def check_gaps(blocks, kind, exists, errors):
@@ -321,6 +392,8 @@ def main():
                     errors.append(f"[[{n}]] is missing the `{key}` field (framework {fm.get('framework')})")
             if fm.get("framework") == "seven_powers" and "benefit" in fm and not list(links(fm.get("benefit"))):
                 errors.append(f"[[{n}]] has an empty `benefit`: a power needs a cited benefit")
+            for dest in sorted(set(links(fm.get("benefit"))) & set(links(fm.get("against")))):
+                errors.append(f"[[{n}]] {show(dest)} is both in `benefit` and in `against`")
         if t == "hypothesis" and not (fm.get("metric") and fm.get("threshold")):
             errors.append(f"[[{n}]] has no metric and threshold: it is an assumption, not a hypothesis")
     for key, b in blocks.items():
@@ -328,8 +401,19 @@ def main():
             if not list(links(b["fields"].get("answered_by"))):
                 errors.append(f"{show(key)} is answered but names no decision in `answered_by`")
     originals = check_sources(vault, nodes, errors)
-    manual, unchecked = check_quotes(vault, nodes, blocks, originals, errors)
+    manual, unchecked, cut, values = check_quotes(vault, nodes, blocks, originals, errors)
     vital = check_gaps(blocks, kind, exists, errors)
+
+    # Claims no conclusion links, and relations marked between claims
+    used = {dest for fm in nodes.values() if fm.get("type") == "conclusion"
+            for field in LINK_FIELDS for dest in links(fm.get(field))}
+    unused = defaultdict(list)
+    for key, b in blocks.items():
+        if kind(b["parent"]) == "source" and key not in used:
+            unused[b["parent"]].append(f"^{key.split('#')[1]}")
+    unused_lines = [f"- [[{n}]]: {', '.join(ids)}" for n, ids in sorted(unused.items())]
+    relations = {f: sum(len(list(links(b["fields"].get(f)))) for b in blocks.values())
+                 for f in ("confirms", "contradicts")}
 
     # Alert seeds
     seeds = []
@@ -406,15 +490,19 @@ def main():
 
     out = [f"# Impact report {today}", "",
            "Generated by `scripts/trace.py`. It changes no status: a person decides.", "",
+           f"Relations marked: {relations['confirms']} confirms, {relations['contradicts']} contradicts.", "",
            "## Validation", ""] + ([f"- {e}" for e in errors] or ["No errors."]) + [
            "", "## Quotes verified manually", ""] + (manual or ["None."]) + [
            "", "## Quotes not checked automatically", ""] + (unchecked or ["None."]) + [
+           "", "## Quotes cut before a condition", ""] + (cut or ["None."]) + [
+           "", "## DATA values not found", ""] + (values or ["None."]) + [
            "", "## Affected", "", "| Item | Type | Reason | Path |", "| --- | --- | --- | --- |"]
     for n in sorted(affected, key=lambda k: (ORDER.get(kind(k), 9), k)):
         out += [f"| [[{n}]] | {kind(n)} | {reason} | {path} |" for reason, path in affected[n]]
     out += ["", "## Budgets", "", "| Budget | Current | Soft | Hard | State |", "| --- | --- | --- | --- | --- |"] + rows
     out += ["", "## Reviews due", ""] + (due or ["None."])
     out += ["", "## Archive candidates", "", "Expired and not relied on by any live decision.", ""] + (archive or ["None."])
+    out += ["", "## Unused claims", ""] + (unused_lines or ["None."])
     report = vault / "reports" / f"impact-{today:%Y%m%d}.md"
     report.parent.mkdir(exist_ok=True)
     report.write_text("\n".join(out) + "\n", encoding="utf-8")

@@ -16,7 +16,7 @@ budgets:
   live_decisions: [7, 12]
   hypotheses_per_decision: [3, 5]
   conclusions_per_framework: [5, 8]
-  vital_gaps_per_question: [3, 5]
+  vital_gaps_per_question: [3, 3]
 
 # Default months until review, by kind.
 review_months:

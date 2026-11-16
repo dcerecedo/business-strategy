@@ -26,6 +26,7 @@ review: 2027-05-15
   It holds claims that cut against the title, not the company's own marketing or unchecked items.
 - Framework fields (`power`, `force`...) are listed in the framework catalog; `scripts/trace.py` requires them.
   For `seven_powers`, `benefit` and `barrier` are lists of claim links and `benefit` cannot be empty.
+  `scripts/trace.py` rejects a claim that is both in `benefit` and in `against`.
 - Status is current or archived.
 - One conclusion per file, numbered per framework: `C-<framework>-NN`.
 - Headings are written in the configured language; keep the three-part structure (rule 6).

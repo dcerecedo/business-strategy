@@ -58,8 +58,19 @@ python3 scripts/trace.py .
 ```
 
 Activate the venv before starting Claude Code in the instance, so the skills' `python3` is the venv's. Exit code 1 on validation errors or a hard budget exceeded.
-`trace.py` checks every literal quote against its file in `originals/`. PDFs need `pdftotext`
-(poppler-utils); without it those quotes are listed as not checked.
+`trace.py` validates, and fails on:
+
+- links between notes, duplicate IDs and the required fields of sources, conclusions, hypotheses and answered questions;
+- originals: under `originals/`, named after the source, and the file as served (`.pdf`, `.html`) when the source has a `url`;
+- every literal quote, and every quoted fragment of three words or more in a `DATA:` line, against its original;
+- framework fields, and a claim that is both in `benefit` and in `against`;
+- gaps: a `^gNN` id, a `question` that exists and a valid `origin`;
+- hard budgets.
+
+It only warns, in `reports/impact-YYYYMMDD.md`: quotes it could not check or that were verified manually,
+quotes cut just before a condition, `DATA:` numbers not found in the original, alerts propagated to
+decisions and strategy, soft budgets, reviews due, archive candidates and claims no conclusion uses.
+PDFs need `pdftotext` (poppler-utils); without it their quotes are listed as not checked.
 `examples/acme` is a fictional instance with seeded alerts to try it on.
 
 ## Obsidian
