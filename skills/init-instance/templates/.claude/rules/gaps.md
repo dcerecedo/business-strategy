@@ -15,4 +15,6 @@ Gaps live in a `## Gaps` section at the end of `framing.md`, one block per gap:
 - `origin` is one of internal, customer, installer, purchase, manual. `manual` is public but needs a
   person (blocked site, office visit).
 - `priority:: vital` only if closing the gap could flip the answer. Keep vital gaps to three per question.
+- `scripts/trace.py` checks that each gap has a `question` that exists and a valid `origin`, and
+  counts vital gaps per question against the `vital_gaps_per_question` budget.
 - Gaps are numbered like claims (`^g01`) and closed by deleting the line once a source answers them.
