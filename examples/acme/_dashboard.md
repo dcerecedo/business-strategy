@@ -1,6 +1,6 @@
 # Dashboard
 
-Lists only. Alerts, budgets and reviews are in the latest report from `scripts/trace.py`.
+Lists only. Alerts, budgets and reviews are in the latest report from `scripts/check.py`.
 
 ## Latest report
 

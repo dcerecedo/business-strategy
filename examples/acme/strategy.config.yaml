@@ -10,7 +10,7 @@ segments: []
 # Only the frameworks the open questions need. Catalog: skills/apply-framework/frameworks.md
 frameworks_active: [jtbd, porter]
 
-# [soft, hard]. Soft warns in the report; hard fails scripts/trace.py.
+# [soft, hard]. Soft warns in the report; hard fails scripts/check.py.
 budgets:
   open_questions: [5, 7]
   live_decisions: [7, 12]

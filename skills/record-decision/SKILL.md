@@ -21,7 +21,7 @@ taking a new number.
    `(status:: answered) (answered_by:: [[D-NNN-<slug>]])` in `framing.md`.
 8. Update `strategy/direction.md` and the current `strategy/OKR-YYYY.md` so they link the decision.
    Direction must still read in one page.
-9. Run `python3 scripts/trace.py .`.
+9. Run `python3 scripts/check.py .`.
 
 ## Review
 
@@ -31,4 +31,4 @@ Triggered by the Affected section of a report, a refuted or overdue hypothesis, 
 2. With the user, choose: keep (update `review`), revise (new decision that `supersedes` this one), or
    withdraw (status superseded, with the reason in the body).
 3. Update hypothesis statuses only with data from their `metric_source`.
-4. Run `python3 scripts/trace.py .`.
+4. Run `python3 scripts/check.py .`.

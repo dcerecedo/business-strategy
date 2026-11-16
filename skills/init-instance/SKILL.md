@@ -22,7 +22,7 @@ Everything company-specific goes into the instance. Never write company facts in
    Add those frameworks to `frameworks_active`. Missing evidence that would change a decision is a gap (rule 3).
 7. Create the venv: `python3 -m venv <target>/.venv && <target>/.venv/bin/pip install -r <target>/requirements.txt`.
    Tell the user to activate it (`source .venv/bin/activate`) before starting Claude Code in the instance.
-8. Run `<target>/.venv/bin/python <target>/scripts/trace.py <target>` and fix anything it reports.
+8. Run `<target>/.venv/bin/python <target>/scripts/check.py <target>` and fix anything it reports.
 9. Suggest `git init` and a first commit.
 
 Then hand over to `ingest-source`, `apply-framework` and `record-decision`, in that order, one question at a time.
@@ -30,6 +30,7 @@ Then hand over to `ingest-source`, `apply-framework` and `record-decision`, in t
 ## Upgrade
 
 `python3 <this skill dir>/scaffold.py <target> --upgrade` overwrites `CLAUDE.md`, `.claude/rules/` and
-`scripts/`, and adds template files the instance lacks (such as `requirements.txt`) without overwriting any.
+`scripts/`, adds template files the instance lacks (such as `requirements.txt`) without overwriting any,
+and deletes engine files an earlier version shipped (`scripts/trace.py`, now `scripts/check.py`).
 It never touches configuration or content. Lines added to the template `.gitignore` do not reach an
-existing instance: show the user the difference. Run `scripts/trace.py` afterwards.
+existing instance: show the user the difference. Run `scripts/check.py` afterwards.

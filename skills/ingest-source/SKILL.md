@@ -30,6 +30,6 @@ Capture: when a page rejects plain requests or needs JavaScript, open it with Cl
    `(contradicts:: ...)` where it applies. Do not edit the older claim. Report how many you marked;
    zero across several sources on one question needs a reason.
 6. Set `review` from `review_months` in the configuration.
-7. Run `python3 scripts/trace.py .` and show the user the Affected section, any quote or quoted
+7. Run `python3 scripts/check.py .` and show the user the Affected section, any quote or quoted
    fragment that failed, the quotes cut before a condition and the `DATA:` values not found.
    Do not change any status: the user decides what a contradiction means.

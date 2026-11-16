@@ -37,8 +37,8 @@ conclusions/           C-<framework>-NN.md
 hypotheses/            H-NNN-slug.md
 decisions/             D-NNN-slug.md
 strategy/              direction.md, OKR-YYYY.md
-reports/               impact-YYYYMMDD.md, written by scripts/trace.py
-scripts/trace.py       validation, quote checks, alert propagation, budgets, reviews
+reports/               impact-YYYYMMDD.md, written by scripts/check.py
+scripts/               check.py, which runs graph.py, check_evidence.py and check_traceability.py
 requirements.txt       PyYAML, installed in the instance .venv/
 CLAUDE.md, .claude/rules/   engine-owned, refreshed by init-instance --upgrade
 ```
@@ -54,11 +54,11 @@ Each instance has its own venv for PyYAML, ignored by git:
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python3 scripts/trace.py .
+python3 scripts/check.py .
 ```
 
 Activate the venv before starting Claude Code in the instance, so the skills' `python3` is the venv's. Exit code 1 on validation errors or a hard budget exceeded.
-`trace.py` validates, and fails on:
+`check.py` validates, and fails on:
 
 - links between notes, including `confirms` and `contradicts`, duplicate IDs and the required fields of sources, conclusions, hypotheses and answered questions;
 - originals: under `originals/`, named after the source, and the file as served (`.pdf`, `.html`) when the source has a `url`;
@@ -77,12 +77,12 @@ in git: run `python3 skills/init-instance/scaffold.py examples/acme --upgrade` f
 ## Obsidian
 
 Open the instance as a vault and install the Dataview community plugin for `_dashboard.md`.
-The dashboard only lists; alert logic lives in `scripts/trace.py` alone.
+The dashboard only lists; alert logic lives in `scripts/check.py` alone.
 
 ## Two people, one instance
 
 Sync with git. One file per unit keeps conflicts rare. Pull before creating a decision or
-hypothesis: `trace.py` reports duplicated numbers if two people create the same one.
+hypothesis: `check.py` reports duplicated numbers if two people create the same one.
 
 ## License
 

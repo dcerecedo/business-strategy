@@ -7,8 +7,9 @@ Usage:
 
 Create never overwrites an existing file. Upgrade overwrites engine-owned files
 (CLAUDE.md, .claude/rules/, scripts/) and adds any other template file that is missing
-(for example requirements.txt), without overwriting it. Configuration and content
-(strategy.config.yaml, framing.md, strategy/) are never created or touched by an upgrade.
+(for example requirements.txt), without overwriting it, and deletes engine-owned files a
+previous version shipped (OBSOLETE). Configuration and content (strategy.config.yaml,
+framing.md, strategy/) are never created or touched by an upgrade.
 """
 import argparse
 import shutil
@@ -18,6 +19,8 @@ from pathlib import Path
 TEMPLATES = Path(__file__).resolve().parent / "templates"
 ENGINE_OWNED = ("CLAUDE.md", ".claude/rules/", "scripts/")
 SEED_ONLY = ("strategy.config.yaml", "framing.md", "strategy/")
+# Engine-owned files that earlier versions shipped and this one replaces.
+OBSOLETE = ("scripts/trace.py",)
 CONTENT_DIRS = ["sources", "originals", "conclusions", "hypotheses", "decisions", "strategy", "reports"]
 
 
@@ -36,7 +39,7 @@ def main():
 
     subs = {"{{company}}": a.company, "{{unit}}": a.unit, "{{language}}": a.language}
     written = []
-    # Running the tests leaves __pycache__ next to templates/scripts/trace.py.
+    # Running the tests leaves __pycache__ next to templates/scripts/check.py.
     for src in sorted(p for p in TEMPLATES.rglob("*") if p.is_file() and "__pycache__" not in p.parts):
         rel = src.relative_to(TEMPLATES).as_posix()
         dst = a.target / rel
@@ -54,6 +57,9 @@ def main():
                 text = text.replace(k, v)
             dst.write_text(text, encoding="utf-8")
         written.append(rel)
+    removed = [rel for rel in OBSOLETE if a.upgrade and (a.target / rel).is_file()]
+    for rel in removed:
+        (a.target / rel).unlink()
     if not a.upgrade:
         for d in CONTENT_DIRS:
             (a.target / d).mkdir(parents=True, exist_ok=True)
@@ -63,6 +69,8 @@ def main():
     print(f"{'upgraded' if a.upgrade else 'created'} {a.target}: {len(written)} files written")
     for rel in written:
         print(f"  {rel}")
+    for rel in removed:
+        print(f"  removed {rel}")
     return 0
 
 

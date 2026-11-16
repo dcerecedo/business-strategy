@@ -5,6 +5,8 @@ import shutil
 import pytest
 import yaml
 
+import check_evidence
+import check_traceability
 from conftest import DROP, FIXTURES, ROOT, Instance, hide_pdftotext
 
 ACME = ROOT / "examples" / "acme"
@@ -184,8 +186,8 @@ def test_data_line_not_checked(instance):
     ("[ x ]", "[x]"),
     ("f( x ) , y", "f(x), y"),
 ])
-def test_normalize(trace, raw, expected):
-    assert trace.normalize(raw) == expected
+def test_normalize(raw, expected):
+    assert check_evidence.normalize(raw) == expected
 
 
 # 3. Matching
@@ -352,9 +354,9 @@ def catalog_keys():
     return keys
 
 
-def test_framework_keys_match_catalog(trace):
+def test_framework_keys_match_catalog():
     assert len(catalog_keys()) == 9
-    assert {fw: set(k) for fw, k in trace.FRAMEWORK_KEYS.items()} == catalog_keys()
+    assert {fw: set(k) for fw, k in check_traceability.FRAMEWORK_KEYS.items()} == catalog_keys()
 
 
 @pytest.mark.parametrize("framework, fields, missing", [
@@ -537,10 +539,10 @@ def test_four_vital_gaps_default_hard_limit(instance):
 
 @pytest.mark.parametrize("config", [ROOT / "skills" / "init-instance" / "templates" / "strategy.config.yaml",
                                     ACME / "strategy.config.yaml"], ids=["template", "acme"])
-def test_config_budgets_match_defaults(trace, config):
+def test_config_budgets_match_defaults(config):
     # The template has {{placeholders}} that are not valid YAML.
     text = re.sub(r"\{\{\w+\}\}", "x", config.read_text(encoding="utf-8"))
-    assert yaml.safe_load(text)["budgets"] == trace.DEFAULT_BUDGETS
+    assert yaml.safe_load(text)["budgets"] == check_traceability.DEFAULT_BUDGETS
 
 
 # 4. Quoted fragments in DATA lines
@@ -821,10 +823,10 @@ ACME_ALERTS = [
 
 
 @pytest.fixture
-def acme(tmp_path, trace, monkeypatch):
+def acme(tmp_path, check, monkeypatch):
     root = tmp_path / "acme"
     shutil.copytree(ACME, root, ignore=shutil.ignore_patterns("impact-*.md", ".venv", "__pycache__"))
-    return Instance(root, trace, monkeypatch, scaffold=False)
+    return Instance(root, check, monkeypatch, scaffold=False)
 
 
 def assert_acme_alerts(result):

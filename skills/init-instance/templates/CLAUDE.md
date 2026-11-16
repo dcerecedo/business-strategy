@@ -32,7 +32,7 @@ The core (framing, strategy, decisions, hypotheses) stays small. Evidence is onl
 
 ## Setup
 
-`scripts/trace.py` needs PyYAML, installed in a venv inside the instance (ignored by git):
+`scripts/check.py` needs PyYAML, installed in a venv inside the instance (ignored by git):
 
 ```
 python3 -m venv .venv
@@ -45,7 +45,7 @@ Activate the venv before starting Claude Code, so `python3` resolves to it.
 ## Working here
 
 - Keys, paths, IDs and status values are in English. Headings and prose use the configured language.
-- Formats are in `.claude/rules/`. Follow them exactly: `scripts/trace.py` does not read the rules, but checks part of what they say.
-- After any change to content, run `python3 scripts/trace.py .` and report what it says.
+- Formats are in `.claude/rules/`. Follow them exactly: `scripts/check.py` does not read the rules, but checks part of what they say.
+- After any change to content, run `python3 scripts/check.py .` and report what it says.
 - The script never changes a status, and neither do you without the user deciding.
 - Pull before creating a decision or hypothesis, so numbers do not collide.

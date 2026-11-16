@@ -29,6 +29,6 @@ Read `strategy.config.yaml`, `framing.md` and `.claude/rules/conclusions.md` fir
    `against`: claims that cut against the title sentence. The company's own marketing and lines that
    only say something was not checked do not count. If you find none, leave `against: []` and say
    what would count as contrary evidence.
-7. Run `python3 scripts/trace.py .` and fix validation errors.
+7. Run `python3 scripts/check.py .` and fix validation errors.
 8. Close with the answer the conclusions give to the question in one paragraph, naming the
    conclusions it rests on, and the gaps in `framing.md` in the format of `.claude/rules/gaps.md`.

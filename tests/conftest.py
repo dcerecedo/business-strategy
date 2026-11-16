@@ -1,4 +1,3 @@
-import importlib.util
 import shutil
 import sys
 from dataclasses import dataclass
@@ -8,7 +7,9 @@ import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
-TRACE_PATH = ROOT / "skills" / "init-instance" / "templates" / "scripts" / "trace.py"
+SCRIPTS = ROOT / "skills" / "init-instance" / "templates" / "scripts"
+# check.py imports its sibling modules, as it does when run from an instance.
+sys.path.insert(0, str(SCRIPTS))
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 TODAY = "2026-11-15"
 DROP = object()
@@ -42,11 +43,8 @@ def hide_pdftotext(monkeypatch):
 
 
 @pytest.fixture(scope="session")
-def trace():
-    # Not named "trace": the stdlib has a module with that name.
-    spec = importlib.util.spec_from_file_location("strategy_trace", TRACE_PATH)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+def check():
+    import check as module
     return module
 
 
@@ -78,8 +76,8 @@ class Result:
 
 
 class Instance:
-    def __init__(self, root, trace, monkeypatch, scaffold=True):
-        self.root, self._trace, self._mp = root, trace, monkeypatch
+    def __init__(self, root, check, monkeypatch, scaffold=True):
+        self.root, self._check, self._mp = root, check, monkeypatch
         if scaffold:
             self.config()
             self.framing()
@@ -144,12 +142,12 @@ class Instance:
         self._md(f"decisions/{name}.md", base, f"# {name}\n")
 
     def run(self, today=TODAY):
-        self._mp.setattr(sys, "argv", ["trace.py", str(self.root), "--today", today])
-        code = self._trace.main()
+        self._mp.setattr(sys, "argv", ["check.py", str(self.root), "--today", today])
+        code = self._check.main()
         report = (self.root / "reports" / f"impact-{today.replace('-', '')}.md").read_text(encoding="utf-8")
         return Result(code, report)
 
 
 @pytest.fixture
-def instance(tmp_path, trace, monkeypatch):
-    return Instance(tmp_path / "instance", trace, monkeypatch)
+def instance(tmp_path, check, monkeypatch):
+    return Instance(tmp_path / "instance", check, monkeypatch)
