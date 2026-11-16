@@ -71,6 +71,26 @@ def check_links(g, owner, refs, label, errors):
     return ok
 
 
+def check_plain_links(owner, label, value, errors, must):
+    """Errors for non-empty items of `value` that are not wikilinks: they would pass every link check."""
+    for item in value if isinstance(value, list) else [value] if value else []:
+        if str(item).strip() and not LINK.search(str(item)):
+            errors.append(f"{owner} {label} must link {must}: `{item}` is not a link")
+
+
+def is_entity(g, ref, area=None):
+    return "#" not in ref and g.kind(ref) == "entity" and (area is None or g.nodes[ref].get("area") == area)
+
+
+def check_entity_links(g, owner, key, value, area, errors):
+    """`value` holds links to entities in `diagnosis/<area>/`, and only that."""
+    where = f"`diagnosis/{area}/`"
+    check_plain_links(owner, f"`{key}`", value, errors, f"entities in {where}")
+    for dest in check_links(g, owner, list(links(value)), f"`{key}`", errors):
+        if not is_entity(g, dest, area):
+            errors.append(f"{owner} `{key}` points to `{dest}`, which is not an entity in {where}")
+
+
 def check_areas(g, today, errors, d):
     updated = {}
     for area, block in AREAS.items():
@@ -90,8 +110,13 @@ def check_areas(g, today, errors, d):
         if status == "pending":
             d.sections["Diagnosis areas"].append(f"- {owner} is pending")
         if status in ("not_material", "gap"):
-            prose = [l for l in g.bodies[area].splitlines()
-                     if l.strip() and not l.startswith("#") and not BLOCK.match(l)]
+            # The reason is prose of its own, outside the baseline and the findings.
+            prose, heading = [], None
+            for line in g.bodies[area].splitlines():
+                if line.startswith("#"):
+                    heading = line.lstrip("#").strip()
+                elif line.strip() and heading not in ("Baseline", "Findings"):
+                    prose.append(line)
             if not prose:
                 why = "the reason it is not material" if status == "not_material" else "the evidence that is missing"
                 errors.append(f"{owner} is `{status}` but does not say {why}")
@@ -105,6 +130,9 @@ def check_areas(g, today, errors, d):
                 errors.append(f"{owner} Baseline line cites no claim: {line.strip()[:60]}")
             for c in claims:
                 _cite(d, c, area)
+        for b in (b for b in g.blocks.values() if b["parent"] == area and FINDING_ID.fullmatch(b["id"])):
+            if b["section"] != "Findings":
+                errors.append(f"{owner} has a finding `^{b['id']}` outside `## Findings`")
         for line in g.section_lines(area, "Findings"):
             item = LIST_ITEM.match(line)
             block = BLOCK.match(line)
@@ -122,7 +150,7 @@ def check_findings(g, errors, d):
     """Returns the findings by id."""
     findings, per_area = {}, defaultdict(int)
     for key, b in g.blocks.items():
-        if g.kind(key) != "area" or not FINDING_ID.fullmatch(b["id"]):
+        if g.kind(key) != "area" or not FINDING_ID.fullmatch(b["id"]) or b["section"] != "Findings":
             continue
         findings[key] = b
         f, owner = b["fields"], show(key)
@@ -134,13 +162,16 @@ def check_findings(g, errors, d):
         supports = list(links(f.get("supports")))
         if not supports:
             errors.append(f"{owner} has no `supports`: a finding rests on claims")
+        check_plain_links(owner, "`supports`", f.get("supports"), errors, "claims")
         for dest in check_links(g, owner, supports, "`supports`", errors):
-            if g.is_claim(dest):
-                _cite(d, dest, key)
-            else:
+            if not g.is_claim(dest):
                 errors.append(f"{owner} `supports` points to `{dest}`, which is not a claim")
+            elif status != "retired":
+                # A retired finding no longer rests on its claims: alerts on them are not its concern.
+                _cite(d, dest, key)
+        check_plain_links(owner, "`about`", f.get("about"), errors, "entities")
         for dest in check_links(g, owner, list(links(f.get("about"))), "`about`", errors):
-            if g.kind(dest) != "entity":
+            if not is_entity(g, dest):
                 errors.append(f"{owner} `about` points to `{dest}`, which is not an entity")
         if status == "new":
             text = INLINE.sub("", b["text"]).strip()
@@ -159,6 +190,7 @@ def check_questions(g, findings, errors, d):
         f, owner = b["fields"], show(key)
         if "kind" in f and f["kind"] not in KINDS:
             errors.append(f"{owner} `kind` is {expect(f['kind'], KINDS)}")
+        check_plain_links(owner, "`raised_by`", f.get("raised_by"), errors, "findings")
         for dest in check_links(g, owner, list(links(f.get("raised_by"))), "`raised_by`", errors):
             if dest not in findings:
                 errors.append(f"{owner} `raised_by` points to `{dest}`, which is not a finding")
@@ -192,21 +224,16 @@ def check_entities(g, today, errors, d):
                 if not fm.get(key):
                     errors.append(f"{owner} is evidenced but `{key}` is empty")
         for key, value in fm.items():
-            refs = check_links(g, owner, list(links(value)), f"`{key}`", errors)
             target = ENTITY_LINKS.get((area, key))
-            if not target:
-                continue
-            for item in value if isinstance(value, list) else [value] if value else []:
-                if not LINK.search(str(item)):
-                    errors.append(f"{owner} `{key}` must link entities in `diagnosis/{target}/`: `{item}` is not a link")
-            for dest in refs:
-                if g.kind(dest) != "entity" or g.nodes[dest].get("area") != target:
-                    errors.append(f"{owner} `{key}` points to `{dest}`, which is not an entity in `diagnosis/{target}/`")
+            if target:
+                check_entity_links(g, owner, key, value, target, errors)
+            else:
+                check_links(g, owner, list(links(value)), f"`{key}`", errors)
         archived = fm.get("status") == "archived"
         claims = [r for r in check_links(g, owner, list(links(g.bodies[n])), "body", errors) if g.is_claim(r)]
         if not claims and not archived:
             errors.append(f"{owner} cites no claim: an entity describes what sources say")
-        for c in claims:
+        for c in claims if not archived else []:
             _cite(d, c, n)
         review = to_date(fm.get("review"))
         if not archived:
@@ -223,13 +250,7 @@ def check_segment_field(g, errors):
     for n, fm in sorted(g.nodes.items()):
         if fm.get("type") != "conclusion" or not fm.get("segment"):
             continue
-        value = fm["segment"]
-        for item in value if isinstance(value, list) else [value]:
-            if not LINK.search(str(item)):
-                errors.append(f"[[{n}]] `segment` must link a segment in `diagnosis/market/`: `{item}` is not a link")
-        for dest in check_links(g, f"[[{n}]]", list(links(value)), "`segment`", errors):
-            if g.kind(dest) != "entity" or g.nodes[dest].get("area") != "market":
-                errors.append(f"[[{n}]] `segment` points to `{dest}`, which is not a segment in `diagnosis/market/`")
+        check_entity_links(g, f"[[{n}]]", "segment", fm["segment"], "market", errors)
 
 
 def check_game(g, updated, today, errors, d):
@@ -276,6 +297,6 @@ def check(g, cfg, today, errors):
 def revisit(g, d, affected):
     """Questions an alert reached through the findings that raised them."""
     for key in sorted(affected):
-        if g.kind(key) == "framing" and key in g.blocks and g.blocks[key]["id"].startswith("q"):
+        if g.is_question(key):
             for reason, path in affected[key]:
                 d.sections["Questions to revisit"].append(f"- {show(key)}: {reason} ({path})")

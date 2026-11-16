@@ -88,6 +88,9 @@ class Graph:
     def is_claim(self, ref):
         return "#" in ref and ref in self.blocks and self.kind(ref) == "source"
 
+    def is_question(self, ref):
+        return "#" in ref and ref in self.blocks and self.kind(ref) == "framing" and self.blocks[ref]["id"].startswith("q")
+
     def section_lines(self, stem, heading):
         """Lines under a `## heading` of a note, up to the next heading."""
         out, inside = [], False

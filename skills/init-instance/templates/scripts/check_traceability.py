@@ -170,9 +170,6 @@ def propagate(seeds, reverse, stop=lambda n: False):
     return affected
 
 
-def is_question(g, ref):
-    return "#" in ref and g.kind(ref) == "framing" and ref in g.blocks and g.blocks[ref]["id"].startswith("q")
-
 
 def check_budgets(g, budgets, vital):
     open_q = [k for k, b in g.blocks.items() if g.kind(k) == "framing" and b["fields"].get("status") == "open"]
@@ -192,11 +189,12 @@ def check_budgets(g, budgets, vital):
     return live
 
 
-def check_reviews(g, live, today, tr, skip=frozenset()):
-    """Only what a live decision relies on is reviewed; the rest is archived (rule 7).
+def check_reviews(g, live, today, tr, skip=frozenset(), kept=frozenset()):
+    """Only what a live decision or the diagnosis relies on is reviewed; the rest is archived (rule 7).
 
-    Types in `skip` are kept by design (the diagnosis) and reported elsewhere when stale."""
-    claimed, stack = set(), list(live)
+    Types in `skip` are kept by design (the diagnosis) and reported elsewhere when stale. `kept` are
+    links the diagnosis cites: what they point to is reviewed, not archived."""
+    claimed, stack = {ref.split("#")[0] for ref in kept}, list(live)
     while stack:
         n = stack.pop()
         for key in LINK_FIELDS:
@@ -235,13 +233,14 @@ def check(g, cfg, today, errors, defaults=DEFAULT_BUDGETS, diagnosis=None):
             reverse[dest] |= items
     # A question is reported but the alert stops there: whether the decision answering it is affected
     # is for a person to judge.
-    tr.affected = propagate(alert_seeds(g, today), reverse, stop=lambda n: is_question(g, n))
+    tr.affected = propagate(alert_seeds(g, today), reverse, stop=g.is_question)
     budgets = Budgets({**defaults, **(cfg.get("budgets") or {})})
     live = check_budgets(g, budgets, vital)
     for label, n, key in diagnosis.budget_items if diagnosis else []:
         budgets.add(label, n, key)
     tr.budgets, tr.hard = budgets.rows, budgets.hard
-    check_reviews(g, live, today, tr, skip=diagnosis.knowledge_types if diagnosis else frozenset())
+    check_reviews(g, live, today, tr, skip=diagnosis.knowledge_types if diagnosis else frozenset(),
+                  kept=diagnosis.used if diagnosis else frozenset())
     tr.unused = unused_claims(g, diagnosis.used if diagnosis else frozenset())
     return tr
 

@@ -359,7 +359,7 @@ def test_entity_budget_only_for_offering_and_ecosystem(diag, instance):
 def test_conclusion_segment_must_be_link_with_diagnosis(diag, instance):
     instance.conclusion("C-porter-01", [CLAIM], framework="porter", force="rivalry", intensity="high",
                         segment="independents")
-    assert ("[[C-porter-01]] `segment` must link a segment in `diagnosis/market/`: `independents` is not a link"
+    assert ("[[C-porter-01]] `segment` must link entities in `diagnosis/market/`: `independents` is not a link"
             in instance.run().errors)
 
 
@@ -371,7 +371,7 @@ def test_conclusion_segment_link_to_segment(diag, instance):
     instance.conclusion("C-porter-02", [CLAIM], framework="porter", force="rivalry", intensity="high",
                         segment="[[rival]]")
     errors = instance.run().errors
-    assert errors == ["[[C-porter-02]] `segment` points to `rival`, which is not a segment in `diagnosis/market/`"]
+    assert errors == ["[[C-porter-02]] `segment` points to `rival`, which is not an entity in `diagnosis/market/`"]
 
 
 def test_conclusion_segment_text_without_diagnosis(instance):
@@ -432,3 +432,56 @@ def test_segments_key_in_config_warns(diag, instance):
 
 def test_defaults_cover_config_budgets():
     assert set(check_diagnosis.DEFAULT_BUDGETS).isdisjoint(check_traceability.DEFAULT_BUDGETS)
+
+
+# Review regressions
+
+def test_link_to_a_block_inside_an_entity_is_not_an_entity(diag, instance):
+    diag.entity("market", "independents", SEGMENT, body=f"- Fact. {CLAIM} ^b01\n")
+    diag.entity("competition", "rival", {**COMPETITOR, "segments": ["[[independents#^b01]]"]})
+    instance.conclusion("C-porter-01", [CLAIM], framework="porter", force="rivalry", intensity="high",
+                        segment="[[independents#^b01]]")
+    errors = instance.run().errors
+    assert "[[rival]] `segments` points to `independents#b01`, which is not an entity in `diagnosis/market/`" in errors
+    assert "[[C-porter-01]] `segment` points to `independents#b01`, which is not an entity in `diagnosis/market/`" in errors
+
+
+def test_source_cited_only_by_diagnosis_is_reviewed_not_archived(diag, instance):
+    instance.source(review="2026-11-01", claims=(DATA, DATA))
+    diag.area("market", status="covered", baseline=[f"State. {CLAIM}"])
+    result = instance.run()
+    assert "- [[S-20261101-test]] (source), review was due 2026-11-01" in result.items("Reviews due")
+    assert result.items("Archive candidates") == []
+
+
+@pytest.mark.parametrize("field, value, must", [("raised_by", "competition f01", "findings")])
+def test_plain_text_raised_by(diag, instance, field, value, must):
+    instance.framing(questions=[f"Do we follow? (status:: open) ({field}:: {value})"])
+    assert (f"[[framing#^q01]] `{field}` must link {must}: `{value}` is not a link" in instance.run().errors)
+
+
+def test_plain_text_about(diag, instance):
+    diag.area("competition", findings=[finding(extra=" (about:: planify)")])
+    assert "[[competition#^f01]] `about` must link entities: `planify` is not a link" in instance.run().errors
+
+
+def test_baseline_is_not_a_reason(diag, instance):
+    diag.area("macro", status="not_material", baseline=[f"State. {CLAIM}"])
+    assert "[[macro]] is `not_material` but does not say the reason it is not material" in instance.run().errors
+
+
+def test_finding_outside_findings_section(diag, instance):
+    diag.area("competition", status="covered", baseline=[f"- State. {CLAIM} ^f01"])
+    result = instance.run()
+    assert "[[competition]] has a finding `^f01` outside `## Findings`" in result.errors
+    assert not any("Findings in [[competition]]" in r for r in result.section("Budgets"))
+
+
+def test_retired_finding_does_not_use_or_relay(diag, instance):
+    instance.source(review="2026-11-01", claims=(DATA, DATA))
+    diag.area("competition", findings=[finding(status="retired", supports="[[S-20261101-test#^c02]]")])
+    instance.framing(questions=["Do we follow? (status:: open) (raised_by:: [[competition#^f01]])"])
+    result = instance.run()
+    assert not any("competition#f01" in r for r in result.section("Affected"))
+    assert result.items("Questions to revisit") == ["- [[framing#^q01]]: [[competition#^f01]] is retired"]
+    assert "- [[S-20261101-test]]: ^c01, ^c02" in result.items("Unused claims")
