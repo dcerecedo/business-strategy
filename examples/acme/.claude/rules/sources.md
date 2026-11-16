@@ -36,5 +36,6 @@ original: originals/S-20261115-short-slug.pdf
 - A price states currency, tax (included, excluded or not stated), date and scope (material or installed).
 - A comparison between two sources quotes the fragments it compares.
 - A new claim that clashes with or backs an existing one adds
-  `(contradicts:: [[S-...#^c01]])` or `(confirms:: [[S-...#^c01]])`.
+  `(contradicts:: [[S-...#^c01]])` or `(confirms:: [[S-...#^c01]])`. `scripts/trace.py` checks that
+  the claim it points to exists.
 - `review` defaults from `review_months` in the configuration.

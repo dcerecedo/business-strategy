@@ -428,9 +428,11 @@ def main():
             elif fm.get("status") == "open" and deadline and deadline < today:
                 seeds.append((n, f"[[{n}]] past its deadline ({deadline}) and not reviewed"))
     for key, b in blocks.items():
+        for field in ("confirms", "contradicts"):
+            for dest in links(b["fields"].get(field)):
+                if not exists(dest):
+                    errors.append(f"{show(key)} `{field}` points to `{dest}`, which does not exist")
         for dest in links(b["fields"].get("contradicts")):
-            if not exists(dest):
-                errors.append(f"{show(key)} `contradicts` points to `{dest}`, which does not exist")
             seeds.append((dest, f"{show(dest)} contradicted by {show(key)}"))
 
     # Upward propagation

@@ -60,7 +60,7 @@ python3 scripts/trace.py .
 Activate the venv before starting Claude Code in the instance, so the skills' `python3` is the venv's. Exit code 1 on validation errors or a hard budget exceeded.
 `trace.py` validates, and fails on:
 
-- links between notes, duplicate IDs and the required fields of sources, conclusions, hypotheses and answered questions;
+- links between notes, including `confirms` and `contradicts`, duplicate IDs and the required fields of sources, conclusions, hypotheses and answered questions;
 - originals: under `originals/`, named after the source, and the file as served (`.pdf`, `.html`) when the source has a `url`;
 - every literal quote, and every quoted fragment of three words or more in a `DATA:` line, against its original;
 - framework fields, and a claim that is both in `benefit` and in `against`;
