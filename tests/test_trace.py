@@ -752,6 +752,14 @@ def test_whole_source_link_does_not_use_claims(instance):
     assert instance.run().items(UNUSED) == [f"- [[{stem}]]: ^c01"]
 
 
+@pytest.mark.parametrize("field", ["confirms", "contradicts"])
+def test_relation_dangling(instance, field):
+    stem = instance.source(claims=[f"{DATA} ({field}:: [[S-20261101-test#^c09]])"])
+    result = instance.run()
+    assert f"[[{stem}#^c01]] `{field}` points to `S-20261101-test#c09`, which does not exist" in result.errors
+    assert result.code == 1
+
+
 def test_relations_count_in_header(instance):
     instance.source("S-20261101-a")
     instance.source("S-20261102-b")
