@@ -12,8 +12,8 @@ Capture: when a page rejects plain requests or needs JavaScript, open it with Cl
 (`mcp__claude-in-chrome__*` tools) if the session has them. A paid document is a gap with origin
 `purchase`. If you delegate capture to a subagent, copy this paragraph and steps 2 to 4 into its prompt.
 
-1. Name the open question or live decision this source bears on. If there is none, stop and say so:
-   the source is not kept (rule 1).
+1. Name the open question, live decision or diagnosis area this source bears on. If there is none,
+   stop and say so: the source is not kept (rule 1).
 2. Save the original in `originals/` with the same stem as the source file, as served: the PDF as
    downloaded, or the page's HTML (from Chrome: `document.documentElement.outerHTML`). A text
    extract may sit next to it (`.txt`), never instead of it.

@@ -12,17 +12,21 @@ Read `strategy.config.yaml`, `framing.md` and `.claude/rules/conclusions.md` fir
 
 1. Pick the open question. Pick the framework that answers it from `frameworks.md` in this skill's
    directory. If it is not in `frameworks_active`, propose adding it and say why this question needs it.
-2. List the evidence the framework needs. Read the claims that exist. What is missing and would change
+2. List the evidence the framework needs. Read the diagnosis areas relevant to the question first
+   (baseline, findings in its `raised_by`, entities) and follow their links to the claims. Refresh a stale
+   entity before relying on it. Then read the other claims that exist. What is missing and would change
    a decision is a gap: name it and stop to capture it with `ingest-source` if the user agrees.
    Load `ingest-source` before capturing, also when a subagent does the capture.
-3. Explore with the user, following the framework's own rule in `frameworks.md`. Show the findings
+3. Explore with the user, following the framework's own rule in `frameworks.md`. Show what you observe
    as candidate conclusions, one line each with the claims behind it, and wait before writing files.
-4. Filter. A finding becomes a conclusion only if it supports or challenges a decision, proposed or
+4. Filter. A candidate becomes a conclusion only if it supports or challenges a decision, proposed or
    live. Check the `conclusions_per_framework` budget before writing; over the soft limit, merge or
    archive first.
 5. Write each conclusion as `conclusions/C-<framework>-NN.md`: fact, interpretation, implication.
    Every sentence of the fact section rests on a claim in `supports`. A statement about what buyers,
    installers or inspectors do needs a claim; without one it is a gap, not an interpretation.
+   A `segment` field links a segment entity in `diagnosis/market/`; if there is none, create it with
+   an area update of `diagnose` first.
    Compare prices only on the same basis (tax, year, material or installed); otherwise say the
    basis differs and do not compute a ratio.
 6. Argue the other side. For each conclusion, search the sources for contrary evidence and put it in

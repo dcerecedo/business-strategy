@@ -20,7 +20,8 @@ taking a new number.
 7. When the user confirms it, set status active. If it answers a question, mark that question
    `(status:: answered) (answered_by:: [[D-NNN-<slug>]])` in `framing.md`.
 8. Update `strategy/direction.md` and the current `strategy/OKR-YYYY.md` so they link the decision.
-   Direction must still read in one page.
+   Direction must still read in one page. If the decision changes why, how or what in the purpose of
+   `framing.md`, rewrite that block and add `(changed_by:: [[D-NNN-<slug>]])`.
 9. Run `python3 scripts/check.py .`.
 
 ## Review

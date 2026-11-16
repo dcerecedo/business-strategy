@@ -12,10 +12,16 @@ Everything company-specific goes into the instance. Never write company facts in
 
 1. Ask for the target directory, company, business unit (optional) and content language.
 2. Run `python3 <this skill dir>/scaffold.py <target> --company "<name>" --unit "<unit>" --language <code>`.
-3. Fill `strategy.config.yaml` with the user: description, users, segments. Leave `frameworks_active` empty.
-4. Fill `framing.md` with the user: company, segments, and at most five strategic questions.
-   Each question is one line: `- Question? (status:: open) ^q01`. A question is strategic if its
-   answer would change where the company plays or how it wins. Reject questions that are tasks.
+3. Fill `strategy.config.yaml` with the user: description and users. Leave `frameworks_active` empty.
+   Segments are not configuration: they are entities in `diagnosis/market/`.
+4. Write the purpose in `framing.md` with the user: why the company exists (`^why`), how it means to
+   win (`^how`) and what it offers (`^what`), one block each. It is a stated intention and needs no claims.
+   Then ask whether the user already has the strategic questions:
+   - Yes: write at most five in `framing.md`, one line each: `- Question? (status:: open) ^q01`. A question is
+     strategic if its answer would change where the company plays or how it wins. Reject questions that are
+     tasks. The diagnosis areas stay pending; when a framework first needs a segment, create it with an area
+     update of `diagnose` on `market`.
+   - No: run the full pass of `diagnose`, which ends with the questions in `framing.md`, then come back here.
 5. Draft `strategy/direction.md` as a first guess, with every guess written as an explicit hypothesis
    to test. This comes before any source capture: it tells you which evidence is worth collecting.
 6. For each open question, list the evidence that is missing and the framework that would answer it.
@@ -32,5 +38,7 @@ Then hand over to `ingest-source`, `apply-framework` and `record-decision`, in t
 `python3 <this skill dir>/scaffold.py <target> --upgrade` overwrites `CLAUDE.md`, `.claude/rules/` and
 `scripts/`, adds template files the instance lacks (such as `requirements.txt`) without overwriting any,
 and deletes engine files an earlier version shipped (`scripts/trace.py`, now `scripts/check.py`).
-It never touches configuration or content. Lines added to the template `.gitignore` do not reach an
+It never touches configuration or content, and never creates `diagnosis/`: an existing instance gets it
+by running `diagnose`, which creates the area files from the templates. If the configuration still has
+`segments`, `scripts/check.py` warns: move them to entities in `diagnosis/market/` and delete the key. Lines added to the template `.gitignore` do not reach an
 existing instance: show the user the difference. Run `scripts/check.py` afterwards.

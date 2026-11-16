@@ -14,6 +14,9 @@ Candidates, not a route. An instance activates only what its open questions need
 | `positioning` | How do customers tell alternatives apart? On demand only. | `axis_x`, `axis_y` | Axes are the criteria customers use to choose, with a claim for each. |
 | `wardley` | What should we build, buy or wait for? On demand only. | `component`, `stage`, `movement` | The stage carries a claim; the movement is the conclusion. |
 
+`segment` is a link to a segment entity in `diagnosis/market/`, the only place segments are defined:
+`segment: "[[independents]]"`.
+
 Not in the catalog on purpose:
 
 - SWOT and TOWS reclassify conclusions that already exist. Use a `sign` field if a view is wanted.
