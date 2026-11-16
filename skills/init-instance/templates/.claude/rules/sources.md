@@ -24,7 +24,7 @@ original: originals/S-20261115-short-slug.pdf
 - Confidence is high, medium or low by source and method, never by convenience.
 - An internal opinion is a source with `origin: internal, <person>`; low confidence unless it brings data.
 - Keep a copy of the original in `originals/` so quotes can be verified if the URL changes: the file
-  as served (PDF, HTML), not an extract. `scripts/trace.py` checks every quote against it.
+  as served (PDF, HTML), not an extract.
 - Every value in a `DATA:` line is readable in the original of the same source.
 - A price states currency, tax (included, excluded or not stated), date and scope (material or installed).
 - A comparison between two sources quotes the fragments it compares.

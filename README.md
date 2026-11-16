@@ -58,8 +58,6 @@ python3 scripts/trace.py .
 ```
 
 Activate the venv before starting Claude Code in the instance, so the skills' `python3` is the venv's. Exit code 1 on validation errors or a hard budget exceeded.
-`trace.py` checks every literal quote against its file in `originals/`. PDFs need `pdftotext`
-(poppler-utils); without it those quotes are listed as not checked.
 `examples/acme` is a fictional instance with seeded alerts to try it on.
 
 ## Obsidian
