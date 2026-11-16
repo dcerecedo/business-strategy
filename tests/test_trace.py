@@ -5,7 +5,7 @@ import shutil
 import pytest
 import yaml
 
-from conftest import DROP, FIXTURES, ROOT, TRACE_PATH, Instance, hide_pdftotext
+from conftest import DROP, FIXTURES, ROOT, Instance, hide_pdftotext
 
 ACME = ROOT / "examples" / "acme"
 CATALOG = ROOT / "skills" / "apply-framework" / "frameworks.md"
@@ -818,10 +818,6 @@ ACME_ALERTS = [
     "source [[S-20260512-trade-barometer]] expired on 2026-11-12",
     "[[S-20260512-trade-barometer#^c01]] contradicted by [[S-20261110-meridian-report#^c01]]",
 ]
-
-
-def test_acme_trace_identical_to_template():
-    assert (ACME / "scripts" / "trace.py").read_bytes() == TRACE_PATH.read_bytes()
 
 
 @pytest.fixture

@@ -71,7 +71,8 @@ It only warns, in `reports/impact-YYYYMMDD.md`: quotes it could not check or tha
 quotes cut just before a condition, `DATA:` numbers not found in the original, alerts propagated to
 decisions and strategy, soft budgets, reviews due, archive candidates and claims no conclusion uses.
 PDFs need `pdftotext` (poppler-utils); without it their quotes are listed as not checked.
-`examples/acme` is a fictional instance with seeded alerts to try it on.
+`examples/acme` is a fictional instance with seeded alerts to try it on. Its engine-owned files are not
+in git: run `python3 skills/init-instance/scaffold.py examples/acme --upgrade` first.
 
 ## Obsidian
 

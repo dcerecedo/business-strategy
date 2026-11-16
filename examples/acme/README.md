@@ -2,6 +2,15 @@
 
 Fictional instance to try `scripts/trace.py`. Company, sources and figures are invented.
 
+Its engine-owned files (`CLAUDE.md`, `.claude/rules/`, `scripts/`) are not in git. Generate them
+from the repository root, and again after each plugin update:
+
+```
+python3 skills/init-instance/scaffold.py examples/acme --upgrade
+```
+
+Then, from `examples/acme` with PyYAML available (see `requirements.txt`):
+
 ```
 python3 scripts/trace.py . --today 2026-11-15
 ```
