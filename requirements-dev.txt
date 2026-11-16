@@ -1,0 +1,2 @@
+-r skills/init-instance/templates/requirements.txt
+pytest
