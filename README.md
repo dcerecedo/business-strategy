@@ -17,11 +17,23 @@ In Claude Code:
 
 Then ask Claude to create a strategy workspace instance; the `init-instance` skill takes it from there.
 
+## Two ways in
+
+- Question first: you know the strategic questions. Write them in `framing.md` and answer them with
+  `ingest-source`, `apply-framework` and `record-decision`.
+- Diagnosis first: you do not know them yet. `diagnose` studies the company and its context in a fixed
+  order of ten areas, records what is true now with citations, and flags findings of three kinds: is this
+  the game we want to play (game), which risk to mitigate (risk), which opportunity to take (opportunity).
+  Findings become the questions, and from there the path is the same.
+
+Both start from the purpose (why, how, what) in `framing.md`. An instance without `diagnosis/` is valid.
+
 ## Skills
 
 | Skill | Use |
 | --- | --- |
 | `init-instance` | Create an instance, or upgrade its engine-owned files |
+| `diagnose` | Study the company and its context area by area and raise strategic questions; or update one area |
 | `ingest-source` | Turn a document or URL into a source file with cited claims |
 | `apply-framework` | Answer a framing question with a framework and keep only the conclusions |
 | `record-decision` | Record a decision with its hypotheses, pre-mortem and review signals |
@@ -30,15 +42,18 @@ Then ask Claude to create a strategy workspace instance; the `init-instance` ski
 
 ```
 strategy.config.yaml   company, language, active frameworks, budgets, review periods
-framing.md             company, segments and strategic questions (^q01 ...)
+framing.md             purpose (^why, ^how, ^what), company and strategic questions (^q01 ...)
 sources/               S-YYYYMMDD-slug.md, one per source, claims as blocks (^c01 ...)
+diagnosis/             <area>.md with baseline and findings (^f01 ...), <area>/<entity>.md for segments,
+                       competitors, lines and dependencies, <area>-view.md, game.md
 originals/             copy of each original, outside the graph
 conclusions/           C-<framework>-NN.md
 hypotheses/            H-NNN-slug.md
 decisions/             D-NNN-slug.md
 strategy/              direction.md, OKR-YYYY.md
 reports/               impact-YYYYMMDD.md, written by scripts/check.py
-scripts/               check.py, which runs graph.py, check_evidence.py and check_traceability.py
+scripts/               check.py, which runs graph.py, check_evidence.py, check_traceability.py
+                       and, when diagnosis/ exists, check_diagnosis.py
 requirements.txt       PyYAML, installed in the instance .venv/
 CLAUDE.md, .claude/rules/   engine-owned, refreshed by init-instance --upgrade
 ```
@@ -65,11 +80,16 @@ Activate the venv before starting Claude Code in the instance, so the skills' `p
 - every literal quote, and every quoted fragment of three words or more in a `DATA:` line, against its original;
 - framework fields, and a claim that is both in `benefit` and in `against`;
 - gaps: a `^gNN` id, a `question` that exists and a valid `origin`;
+- with `diagnosis/`: every area file with a valid status, baselines and findings citing claims, valid kinds
+  and statuses, entity fields, links in `raised_by`, `about`, `segment` and entity attributes;
 - hard budgets.
 
 It only warns, in `reports/impact-YYYYMMDD.md`: quotes it could not check or that were verified manually,
 quotes cut just before a condition, `DATA:` numbers not found in the original, alerts propagated to
 decisions and strategy, soft budgets, reviews due, archive candidates and claims no conclusion uses.
+With `diagnosis/`, also pending areas, findings to classify, questions whose finding was retired or
+reached by an alert, a `game.md` older than an area, stale knowledge and `segments` left in the config.
+`--focus diagnosis|framework|decision` puts the relevant sections first.
 PDFs need `pdftotext` (poppler-utils); without it their quotes are listed as not checked.
 `examples/acme` is a fictional instance with seeded alerts to try it on. Its engine-owned files are not
 in git: run `python3 skills/init-instance/scaffold.py examples/acme --upgrade` first.
