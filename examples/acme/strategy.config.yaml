@@ -5,7 +5,7 @@ company:
   description: ""
 language: en        # language of headings and prose; keys, paths and IDs stay in English
 users: []                # the people who maintain this instance
-segments: []
+# Segments are entities in diagnosis/market/, not configuration.
 
 # Only the frameworks the open questions need. Catalog: skills/apply-framework/frameworks.md
 frameworks_active: [jtbd, porter]
@@ -26,6 +26,9 @@ review_months:
   source_structural: 12
   conclusion: 6
   decision: 6
+  area_context: 6       # diagnosis areas; game.md uses the shorter of the two
+  area_company: 12
+  entity: 6
 
 # External signals: derived from the review signals of live decisions.
 signals:

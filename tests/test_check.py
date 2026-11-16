@@ -862,3 +862,17 @@ def test_acme_without_pdftotext(acme, monkeypatch):
         "- [[S-20260512-trade-barometer#^c01]] `originals/S-20260512-trade-barometer.pdf`: pdftotext not installed",
         "- [[S-20261110-meridian-report#^c01]] `originals/S-20261110-meridian-report.pdf`: pdftotext not installed",
     ]
+
+
+def test_acme_diagnosis(acme):
+    result = acme.run()
+    assert result.errors == []
+    assert result.section("Diagnosis areas") == ["None."]
+    assert result.items("Findings to classify") == [
+        "- [[competition#^f02]] (risk): Rotaly's free plan undercuts us for the smallest independents."]
+    revisit = result.items("Questions to revisit")
+    assert len(revisit) == 2 and all(l.startswith("- [[framing#^q01]]: ") for l in revisit)
+    assert result.items("Synthesis to review") == [
+        "- [[game]] updated 2026-11-14, before [[competition]] updated 2026-11-15"]
+    assert result.section("Configuration") == ["None."]
+    assert result.section("Stale knowledge") == ["None."]

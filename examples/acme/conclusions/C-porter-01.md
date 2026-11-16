@@ -8,7 +8,7 @@ status: current
 review: 2027-05-15
 force: substitutes
 intensity: high
-segment: restaurant groups
+segment: "[[restaurant-groups]]"
 ---
 # Substitutes are strong wherever an ERP is already in place
 

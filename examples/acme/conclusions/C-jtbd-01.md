@@ -6,7 +6,7 @@ supports: ["[[S-20260512-trade-barometer#^c01]]", "[[S-20261020-customer-intervi
 against: ["[[S-20261110-meridian-report#^c01]]"]
 status: current
 review: 2027-05-15
-segment: independent restaurants
+segment: "[[independents]]"
 job: "When a shift is left uncovered at short notice, I want a replacement within hours, so that service runs fully staffed."
 current_alternative: spreadsheet and phone calls
 ---
