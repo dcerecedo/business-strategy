@@ -6,7 +6,7 @@ Usage:
   python3 scaffold.py <target-dir> --upgrade
 
 Create never overwrites an existing file. Upgrade overwrites engine-owned files
-(CLAUDE.md, .claude/rules/, scripts/) and adds any other template file that is missing
+(CLAUDE.md, _dashboard.md, .claude/rules/, scripts/) and adds any other template file that is missing
 (for example requirements.txt), without overwriting it, and deletes engine-owned files a
 previous version shipped (OBSOLETE). Configuration and content (strategy.config.yaml,
 framing.md, strategy/, diagnosis/) are never created or touched by an upgrade.
@@ -17,7 +17,8 @@ import sys
 from pathlib import Path
 
 TEMPLATES = Path(__file__).resolve().parent / "templates"
-ENGINE_OWNED = ("CLAUDE.md", ".claude/rules/", "scripts/")
+# _dashboard.md holds only generic queries, so it is engine-owned like the rules.
+ENGINE_OWNED = ("CLAUDE.md", "_dashboard.md", ".claude/rules/", "scripts/")
 # diagnosis/ is content, and its presence turns on its checks: an upgrade never creates it.
 SEED_ONLY = ("strategy.config.yaml", "framing.md", "strategy/", "diagnosis/")
 # Engine-owned files that earlier versions shipped and this one replaces.

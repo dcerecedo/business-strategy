@@ -35,10 +35,12 @@ Then hand over to `ingest-source`, `apply-framework` and `record-decision`, in t
 
 ## Upgrade
 
-`python3 <this skill dir>/scaffold.py <target> --upgrade` overwrites `CLAUDE.md`, `.claude/rules/` and
-`scripts/`, adds template files the instance lacks (such as `requirements.txt`) without overwriting any,
-and deletes engine files an earlier version shipped (`scripts/trace.py`, now `scripts/check.py`).
-It never touches configuration or content, and never creates `diagnosis/`: an existing instance gets it
-by running `diagnose`, which creates the area files from the templates. If the configuration still has
-`segments`, `scripts/check.py` warns: move them to entities in `diagnosis/market/` and delete the key. Lines added to the template `.gitignore` do not reach an
+`python3 <this skill dir>/scaffold.py <target> --upgrade` overwrites `CLAUDE.md`, `_dashboard.md`,
+`.claude/rules/` and `scripts/`, adds template files the instance lacks (such as `requirements.txt`)
+without overwriting any, and deletes engine files an earlier version shipped (`scripts/trace.py`, now
+`scripts/check.py`). Queries of the user's own belong in another note: the dashboard is replaced on
+every upgrade. It never touches configuration or content, and never creates `diagnosis/`: an existing
+instance gets it by running `diagnose`, which creates the area files from the templates. If the
+configuration still has `segments`, `scripts/check.py` warns: move them to entities in
+`diagnosis/market/` and delete the key. Lines added to the template `.gitignore` do not reach an
 existing instance: show the user the difference. Run `scripts/check.py` afterwards.

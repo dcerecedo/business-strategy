@@ -2,7 +2,7 @@
 
 Fictional instance to try `scripts/check.py`. Company, sources and figures are invented.
 
-Its engine-owned files (`CLAUDE.md`, `.claude/rules/`, `scripts/`) are not in git. Generate them
+Its engine-owned files (`CLAUDE.md`, `_dashboard.md`, `.claude/rules/`, `scripts/`) are not in git. Generate them
 from the repository root, and again after each plugin update:
 
 ```

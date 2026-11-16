@@ -55,7 +55,7 @@ reports/               impact-YYYYMMDD.md, written by scripts/check.py
 scripts/               check.py, which runs graph.py, check_evidence.py, check_traceability.py
                        and, when diagnosis/ exists, check_diagnosis.py
 requirements.txt       PyYAML, installed in the instance .venv/
-CLAUDE.md, .claude/rules/   engine-owned, refreshed by init-instance --upgrade
+CLAUDE.md, _dashboard.md, .claude/rules/   engine-owned, refreshed by init-instance --upgrade
 ```
 
 Paths, IDs, frontmatter keys and status values are in English. Headings and prose are written

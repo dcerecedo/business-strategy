@@ -116,3 +116,11 @@ def test_upgrade_never_creates_diagnosis(real_scaffold, tmp_path):
     assert (target / "scripts" / "check_diagnosis.py").is_file()
     assert (target / ".claude" / "rules" / "diagnosis.md").is_file()
     assert not (target / "diagnosis").exists()
+
+
+def test_upgrade_overwrites_dashboard(real_scaffold, tmp_path):
+    target = existing_instance(tmp_path)
+    (target / "_dashboard.md").write_text("# Old dashboard\n", encoding="utf-8")
+    assert real_scaffold(target, "--upgrade") == 0
+    text = (target / "_dashboard.md").read_text(encoding="utf-8")
+    assert "## Diagnosis areas" in text
