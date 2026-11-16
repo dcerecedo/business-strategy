@@ -12,6 +12,7 @@ TRACE_PATH = ROOT / "skills" / "init-instance" / "templates" / "scripts" / "trac
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 TODAY = "2026-11-15"
 DROP = object()
+SERVED = (".pdf", ".html", ".htm")
 
 
 def pytest_addoption(parser):
@@ -102,11 +103,14 @@ class Instance:
             cfg["budgets"] = budgets
         self.write("strategy.config.yaml", yaml.safe_dump(cfg))
 
-    def framing(self, gaps=(), questions=("First question? (status:: open)", "Second question? (status:: open)")):
+    def framing(self, gaps=(), questions=("First question? (status:: open)", "Second question? (status:: open)"),
+                raw_gaps=()):
+        """`raw_gaps` are lines written as they are under `## Gaps`, after the numbered gaps."""
         body = "# Framing\n\n## Strategic questions\n\n"
         body += "".join(f"- {q} ^q{i:02d}\n" for i, q in enumerate(questions, 1))
-        if gaps:
+        if gaps or raw_gaps:
             body += "\n## Gaps\n\n" + "".join(f"- {g} ^g{i:02d}\n" for i, g in enumerate(gaps, 1))
+            body += "".join(f"{line}\n" for line in raw_gaps)
         self._md("framing.md", {"type": "framing", "review": "2027-05-15"}, body)
 
     def source(self, stem="S-20261101-test", claims=("DATA: 1 unit, from a test table. (confidence:: low)",), **fm):
@@ -121,10 +125,11 @@ class Instance:
         return self.write(f"originals/{name}", content)
 
     def quoted(self, original_text, claims, ext=".txt", stem="S-20261101-quoted"):
-        """A source with a url and an original holding `original_text`."""
+        """A source with an original holding `original_text`, and a url only if the original is a served file."""
         self.original(f"{stem}{ext}", original_text)
         claims = [claims] if isinstance(claims, str) else claims
-        return self.source(stem, claims, url="https://example.org/test", original=f"originals/{stem}{ext}")
+        url = "https://example.org/test" if ext.lower() in SERVED else DROP
+        return self.source(stem, claims, url=url, original=f"originals/{stem}{ext}")
 
     def conclusion(self, name, supports, **fm):
         base = {"type": "conclusion", "framework": "custom", "question": "[[framing#^q01]]",

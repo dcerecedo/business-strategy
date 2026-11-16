@@ -3,6 +3,7 @@ import re
 import shutil
 
 import pytest
+import yaml
 
 from conftest import DROP, FIXTURES, ROOT, TRACE_PATH, Instance, hide_pdftotext
 
@@ -10,6 +11,10 @@ ACME = ROOT / "examples" / "acme"
 CATALOG = ROOT / "skills" / "apply-framework" / "frameworks.md"
 DATA = "DATA: 1 unit, from a test table. (confidence:: low)"
 ORIGINS = ["internal", "customer", "installer", "purchase", "manual"]
+CUT = "Quotes cut before a condition"
+VALUES = "DATA values not found"
+UNUSED = "Unused claims"
+NOT_SERVED = "has a `url` but its `original` is not the file as served (.pdf, .html)"
 
 
 def claim(text):
@@ -54,6 +59,47 @@ def test_source_original_outside_originals(instance):
     instance.write("docs/S-20261101-test.txt", "text")
     stem = instance.source(original="docs/S-20261101-test.txt")
     assert f"[[{stem}]] `original` must be under `originals/`" in instance.run().errors
+
+
+# 1. Originals as served
+
+def served_source(instance, ext, text="Alpha beta.", claims=(DATA,), url="https://example.org/x"):
+    stem = "S-20261101-test"
+    instance.original(f"{stem}{ext}", text)
+    return instance.source(stem, list(claims), url=url, original=f"originals/{stem}{ext}")
+
+
+@pytest.mark.parametrize("ext", [".md", ".txt", ".docx"])
+def test_url_original_not_served(instance, ext):
+    stem = served_source(instance, ext)
+    result = instance.run()
+    assert f"[[{stem}]] {NOT_SERVED}" in result.errors
+    assert result.code == 1
+
+
+@pytest.mark.parametrize("ext", [".md", ".txt"])
+def test_no_url_md_or_txt_original_valid(instance, ext):
+    served_source(instance, ext, url=DROP)
+    assert instance.run().errors == []
+
+
+@pytest.mark.parametrize("ext", [".html", ".htm", ".HTML"])
+def test_url_original_served_valid(instance, ext):
+    served_source(instance, ext, text="<p>Alpha beta.</p>", claims=[claim("Alpha beta.")])
+    assert instance.run().errors == []
+
+
+def test_url_missing_md_original_one_error(instance):
+    stem = instance.source(url="https://example.org/x", original="originals/S-20261101-test.md")
+    assert instance.run().errors == [
+        f"[[{stem}]] `original` points to `originals/S-20261101-test.md`, which does not exist"]
+
+
+def test_url_md_original_quotes_still_checked(instance):
+    stem = served_source(instance, ".md", claims=[claim("Gamma delta.")])
+    errors = instance.run().errors
+    assert f"[[{stem}]] {NOT_SERVED}" in errors
+    assert f"[[{stem}#^c01]] quote not found in `originals/{stem}.md`" in errors
 
 
 # 2. Orphan originals
@@ -131,6 +177,12 @@ def test_data_line_not_checked(instance):
     ("62 %", "62 %"),
     ("alpha \n\t  beta", "alpha beta"),
     ("ﬁnal ﬂow ﬀ ﬃ ﬄ", "final flow ff ffi ffl"),
+    ("a , b", "a, b"),
+    ("a . b", "a. b"),
+    ("a ; b : c", "a; b: c"),
+    ("( x )", "(x)"),
+    ("[ x ]", "[x]"),
+    ("f( x ) , y", "f(x), y"),
 ])
 def test_normalize(trace, raw, expected):
     assert trace.normalize(raw) == expected
@@ -207,6 +259,22 @@ def test_html_script_style_comments_ignored(instance, text):
 
 def test_htm_extension(instance):
     instance.quoted(HTML, claim("Price from 39 € per site"), ext=".htm")
+    assert instance.run().errors == []
+
+
+def test_quote_across_strong_comma(instance):
+    instance.quoted("<p>Price <strong>39 EUR</strong>, per site.</p>", claim("Price 39 EUR, per site."), ext=".html")
+    assert instance.run().errors == []
+
+
+def test_quote_across_paragraphs(instance):
+    instance.quoted("<p>First paragraph.</p><p>Second paragraph.</p>",
+                    claim("First paragraph. Second paragraph."), ext=".html")
+    assert instance.run().errors == []
+
+
+def test_quote_parenthesis_spacing(instance):
+    instance.quoted("Total ( texto ) aquí.", claim("Total (texto) aquí."))
     assert instance.run().errors == []
 
 
@@ -392,7 +460,7 @@ def test_gap_question_may_be_decision(instance):
     instance.framing(gaps=[gap(question="[[D-001-test]]", priority="vital")])
     result = instance.run()
     assert result.errors == []
-    assert "| Vital gaps for [[D-001-test]] | 1 | 3 | 5 | ok |" in result.section("Budgets")
+    assert "| Vital gaps for [[D-001-test]] | 1 | 3 | 3 | ok |" in result.section("Budgets")
 
 
 def test_q_blocks_are_not_gaps(instance):
@@ -411,8 +479,8 @@ def test_vital_gaps_budget_rows(instance):
         gap(question="[[framing#^q09]]", priority="vital"),
     ])
     assert vital_rows(instance.run()) == [
-        "| Vital gaps for [[framing#^q01]] | 2 | 3 | 5 | ok |",
-        "| Vital gaps for [[framing#^q02]] | 1 | 3 | 5 | ok |",
+        "| Vital gaps for [[framing#^q01]] | 2 | 3 | 3 | ok |",
+        "| Vital gaps for [[framing#^q02]] | 1 | 3 | 3 | ok |",
     ]
 
 
@@ -427,20 +495,290 @@ def test_vital_gaps_budget_override(instance):
 def test_vital_gaps_over_hard_limit_exits_1(instance):
     instance.framing(gaps=[gap(priority="vital")] * 6)
     result = instance.run()
-    assert vital_rows(result) == ["| Vital gaps for [[framing#^q01]] | 6 | 3 | 5 | OVER HARD LIMIT |"]
+    assert vital_rows(result) == ["| Vital gaps for [[framing#^q01]] | 6 | 3 | 3 | OVER HARD LIMIT |"]
     assert result.errors == []
     assert result.code == 1
+
+
+def test_gap_without_id(instance):
+    text = "Share of independents that already pay for a shift tool, by region. (question:: [[framing#^q01]]) (origin:: purchase)"
+    instance.framing(raw_gaps=[f"- {text}"])
+    result = instance.run()
+    assert f"`framing.md` has a gap without a `^gNN` id: {text[:60]}" in result.errors
+    assert result.code == 1
+
+
+@pytest.mark.parametrize("block_id", ["c01", "g1"])
+def test_gap_with_wrong_id(instance, block_id):
+    instance.framing(raw_gaps=[f"- {gap()} ^{block_id}"])
+    assert f"`framing.md` has a gap without a `^gNN` id: {gap()[:60]}" in instance.run().errors
+
+
+def test_indented_line_under_gaps_ignored(instance):
+    instance.framing(gaps=[gap()], raw_gaps=["  - Note under the gap, without an id."])
+    assert instance.run().errors == []
+
+
+def test_three_vital_gaps_default_ok(instance):
+    instance.framing(gaps=[gap(priority="vital")] * 3)
+    result = instance.run()
+    assert vital_rows(result) == ["| Vital gaps for [[framing#^q01]] | 3 | 3 | 3 | ok |"]
+    assert result.errors == []
+    assert result.code == 0
+
+
+def test_four_vital_gaps_default_hard_limit(instance):
+    instance.framing(gaps=[gap(priority="vital")] * 4)
+    result = instance.run()
+    assert vital_rows(result) == ["| Vital gaps for [[framing#^q01]] | 4 | 3 | 3 | OVER HARD LIMIT |"]
+    assert result.errors == []
+    assert result.code == 1
+
+
+@pytest.mark.parametrize("config", [ROOT / "skills" / "init-instance" / "templates" / "strategy.config.yaml",
+                                    ACME / "strategy.config.yaml"], ids=["template", "acme"])
+def test_config_budgets_match_defaults(trace, config):
+    # The template has {{placeholders}} that are not valid YAML.
+    text = re.sub(r"\{\{\w+\}\}", "x", config.read_text(encoding="utf-8"))
+    assert yaml.safe_load(text)["budgets"] == trace.DEFAULT_BUDGETS
+
+
+# 4. Quoted fragments in DATA lines
+
+def data_fragment(fragment, extra=""):
+    return f"DATA: panel wording {fragment}, from the minutes. (confidence:: medium){extra}"
+
+
+def test_data_fragment_found(instance):
+    instance.quoted("The panel said alpha beta gamma today.", data_fragment('"alpha beta gamma"'))
+    assert instance.run().errors == []
+
+
+def test_data_fragment_absent(instance):
+    stem = instance.quoted("The panel said alpha beta gamma today.", data_fragment('"delta epsilon zeta"'))
+    result = instance.run()
+    assert f"[[{stem}#^c01]] quoted fragment not found in `originals/{stem}.txt`" in result.errors
+    assert result.code == 1
+
+
+def test_data_fragment_two_words_not_checked(instance):
+    instance.quoted("The panel said alpha beta gamma today.", data_fragment('"delta epsilon"'))
+    assert instance.run().errors == []
+
+
+def test_data_fragment_absent_verified_manual(instance):
+    stem = instance.quoted("The panel said alpha beta gamma today.",
+                           data_fragment('"delta epsilon zeta"', " (verified:: manual)"))
+    result = instance.run()
+    assert result.errors == []
+    assert result.items("Quotes verified manually") == [f"- [[{stem}#^c01]] in `originals/{stem}.txt`"]
+
+
+@pytest.mark.parametrize("fragment", ['"delta epsilon zeta"', "“delta epsilon zeta”", "«delta epsilon zeta»"])
+def test_data_fragment_quote_styles(instance, fragment):
+    stem = instance.quoted("The panel said alpha beta gamma today.", data_fragment(fragment))
+    assert f"[[{stem}#^c01]] quoted fragment not found in `originals/{stem}.txt`" in instance.run().errors
+
+
+def test_data_several_absent_fragments_one_error(instance):
+    stem = instance.quoted("The panel said alpha beta gamma today.",
+                           data_fragment('"delta epsilon zeta" and "eta theta iota"'))
+    assert instance.run().errors == [f"[[{stem}#^c01]] quoted fragment not found in `originals/{stem}.txt`"]
+
+
+def test_data_fragment_inside_field_ignored(instance):
+    instance.quoted("The panel said alpha beta gamma today.",
+                    'DATA: counted from the minutes. (confidence:: medium) (locator:: "delta epsilon zeta")')
+    assert instance.run().errors == []
+
+
+def test_data_fragment_no_original(instance):
+    stem = instance.source(claims=[data_fragment('"delta epsilon zeta"')])
+    result = instance.run()
+    assert result.errors == []
+    assert result.items("Quotes not checked automatically") == [f"- [[{stem}#^c01]]: no original"]
+
+
+def test_data_fragment_pdf_without_pdftotext(instance, monkeypatch):
+    hide_pdftotext(monkeypatch)
+    stem = pdf_source(instance, data_fragment('"delta epsilon zeta"'))
+    result = instance.run()
+    assert result.errors == []
+    assert result.items("Quotes not checked automatically") == [
+        f"- [[{stem}#^c01]] `originals/{stem}.pdf`: pdftotext not installed"]
+
+
+# 5. Quotes cut before a condition
+
+TAIL = "the venue signs for two full years at the listed price and pays upfront every month in advance. End."
+MARKERS = [", en cuyo caso", ", siempre que", ", excepto", ", salvo", ", cuando", ", a condición de",
+           ", in which case", ", provided that", ", except", ", unless", ", when"]
+
+
+def cut_line(stem, words, ext=".txt"):
+    return f'- [[{stem}#^c01]] in `originals/{stem}{ext}`: "{" ".join(words.split()[:15])}"'
+
+
+@pytest.mark.parametrize("marker", MARKERS)
+def test_quote_cut_before_condition(instance, marker):
+    stem = instance.quoted(f"Intro. The fee is waived{marker} {TAIL}", claim("The fee is waived"))
+    result = instance.run()
+    assert result.errors == []
+    assert result.code == 0
+    assert result.items(CUT) == [cut_line(stem, f"{marker[2:]} {TAIL}")]
+
+
+def test_quote_followed_by_period_not_listed(instance):
+    instance.quoted(f"Intro. The fee is waived. {TAIL}", claim("The fee is waived"))
+    assert instance.run().section(CUT) == ["None."]
+
+
+def test_quote_ending_in_comma_before_condition(instance):
+    stem = instance.quoted(f"Intro. The fee is waived, en cuyo caso {TAIL}", claim("The fee is waived,"))
+    assert instance.run().items(CUT) == [cut_line(stem, f"en cuyo caso {TAIL}")]
+
+
+def test_quote_cut_fewer_than_15_words(instance):
+    stem = instance.quoted("The fee is waived, unless the venue cancels.", claim("The fee is waived"))
+    assert instance.run().items(CUT) == [cut_line(stem, "unless the venue cancels.")]
+
+
+def test_data_fragment_cut_before_condition(instance):
+    stem = instance.quoted(f"Terms: the fee is waived, salvo {TAIL}",
+                           'DATA: terms say "the fee is waived", from the contract page. (confidence:: high)')
+    result = instance.run()
+    assert result.errors == []
+    assert result.items(CUT) == [cut_line(stem, f"salvo {TAIL}")]
+
+
+# 6. DATA values
+
+def values_line(stem, numbers, ext=".txt"):
+    return f"- [[{stem}#^c01]] in `originals/{stem}{ext}`: {numbers}"
+
+
+def test_data_value_present(instance):
+    instance.quoted("Sales were 1,240 units.", "DATA: 1,240 units, from the sales table. (confidence:: medium)")
+    assert instance.run().section(VALUES) == ["None."]
+
+
+def test_data_value_absent(instance):
+    stem = instance.quoted("Table 3: 140 north, 240 south.",
+                           "DATA: 140 + 240 = 380 units, summed from table 3. (confidence:: medium)")
+    result = instance.run()
+    assert result.errors == []
+    assert result.code == 0
+    assert result.items(VALUES) == [values_line(stem, "380")]
+
+
+def test_data_iso_date_not_counted(instance):
+    instance.quoted("Sales were 1,240 units.",
+                    "DATA: 1,240 units as of 2026-10-30, from the sales table. (confidence:: medium)")
+    assert instance.run().section(VALUES) == ["None."]
+
+
+def test_data_value_bounded(instance):
+    stem = instance.quoted("Sales were 1,240 units in table 3.",
+                           "DATA: 240 units, from table 3. (confidence:: medium)")
+    assert instance.run().items(VALUES) == [values_line(stem, "240")]
+
+
+def test_data_locator_numbers_ignored(instance):
+    instance.quoted("Sales were 1,240 units.",
+                    "DATA: 1,240 units, from the sales table. (confidence:: medium) (locator:: p. 4, table 7)")
+    assert instance.run().section(VALUES) == ["None."]
+
+
+def test_data_values_unreadable_original(instance, monkeypatch):
+    hide_pdftotext(monkeypatch)
+    stem = pdf_source(instance, 'DATA: 380 units, worded "delta epsilon zeta" in the minutes. (confidence:: medium)')
+    result = instance.run()
+    assert result.items("Quotes not checked automatically") == [
+        f"- [[{stem}#^c01]] `originals/{stem}.pdf`: pdftotext not installed"]
+    assert result.section(VALUES) == ["None."]
+
+
+def test_data_values_no_original_skipped(instance):
+    instance.source(claims=["DATA: 380 units, from interview notes. (confidence:: low)"])
+    result = instance.run()
+    assert result.section(VALUES) == ["None."]
+    assert result.section("Quotes not checked automatically") == ["None."]
+
+
+# 7. benefit and against
+
+def test_claim_in_benefit_and_against(instance):
+    stem = instance.source()
+    link = f"[[{stem}#^c01]]"
+    instance.conclusion("C-seven_powers-01", [link], framework="seven_powers", power="scale economies",
+                        benefit=[link], barrier=[], against=[link])
+    result = instance.run()
+    assert f"[[C-seven_powers-01]] {link} is both in `benefit` and in `against`" in result.errors
+    assert result.code == 1
+
+
+def test_claim_only_in_benefit(instance):
+    stem = instance.source()
+    link = f"[[{stem}#^c01]]"
+    instance.conclusion("C-seven_powers-01", [link], framework="seven_powers", power="scale economies",
+                        benefit=[link], barrier=[])
+    assert instance.run().errors == []
+
+
+# 8. Unused claims and relations
+
+def test_unused_claims_grouped(instance):
+    stem = instance.source(claims=[DATA, DATA, DATA])
+    instance.source("S-20261102-other")
+    instance.conclusion("C-custom-01", [f"[[{stem}#^c01]]"])
+    assert instance.run().items(UNUSED) == [f"- [[{stem}]]: ^c02, ^c03", "- [[S-20261102-other]]: ^c01"]
+
+
+def test_claim_used_only_in_against_not_unused(instance):
+    stem = instance.source(claims=[DATA, DATA])
+    instance.conclusion("C-custom-01", [f"[[{stem}#^c01]]"], against=[f"[[{stem}#^c02]]"])
+    assert instance.run().section(UNUSED) == ["None."]
+
+
+def test_claim_used_by_archived_conclusion_not_unused(instance):
+    stem = instance.source()
+    instance.conclusion("C-custom-01", [f"[[{stem}#^c01]]"], status="archived")
+    assert instance.run().section(UNUSED) == ["None."]
+
+
+def test_whole_source_link_does_not_use_claims(instance):
+    stem = instance.source()
+    instance.conclusion("C-custom-01", [f"[[{stem}]]"])
+    assert instance.run().items(UNUSED) == [f"- [[{stem}]]: ^c01"]
+
+
+def test_relations_count_in_header(instance):
+    instance.source("S-20261101-a")
+    instance.source("S-20261102-b")
+    instance.source("S-20261103-c", claims=[
+        f"{DATA} (contradicts:: [[S-20261101-a#^c01]], [[S-20261102-b#^c01]])",
+        f"{DATA} (confirms:: [[S-20261101-a#^c01]])",
+        f"{DATA} (confirms:: [[S-20261102-b#^c01]])",
+    ])
+    result = instance.run()
+    assert result.errors == []
+    assert "Relations marked: 2 confirms, 2 contradicts." in result.report.splitlines()
 
 
 # Report and general behaviour
 
 def test_report_sections_order_and_empty(instance):
-    instance.source()
+    stem = instance.source()
     result = instance.run()
     assert result.headings == ["Validation", "Quotes verified manually", "Quotes not checked automatically",
-                               "Affected", "Budgets", "Reviews due", "Archive candidates"]
+                               CUT, VALUES, "Affected", "Budgets", "Reviews due", "Archive candidates", UNUSED]
     assert result.section("Quotes verified manually") == ["None."]
     assert result.section("Quotes not checked automatically") == ["None."]
+    assert result.section(CUT) == ["None."]
+    assert result.section(VALUES) == ["None."]
+    assert result.items(UNUSED) == [f"- [[{stem}]]: ^c01"]
+    lines = result.report.splitlines()
+    assert lines.index("Relations marked: 0 confirms, 0 contradicts.") < lines.index("## Validation")
 
 
 def test_exit_code_on_quote_error(instance):
@@ -493,7 +831,11 @@ def assert_acme_alerts(result):
         for reason in ACME_ALERTS:
             assert any(r.startswith(f"| [[{item}]] |") and f"| {reason} |" in r for r in affected), (item, reason)
     assert "- [[S-20260301-hotel-survey]] (source), review was due 2026-09-01" in result.items("Archive candidates")
-    assert "| Vital gaps for [[framing#^q01]] | 1 | 3 | 5 | ok |" in result.section("Budgets")
+    assert "| Vital gaps for [[framing#^q01]] | 1 | 3 | 3 | ok |" in result.section("Budgets")
+    assert result.section(CUT) == ["None."]
+    assert result.section(VALUES) == ["None."]
+    assert result.items(UNUSED) == ["- [[S-20260301-hotel-survey]]: ^c01"]
+    assert "Relations marked: 0 confirms, 1 contradicts." in result.report.splitlines()
 
 
 @pytest.mark.pdf
