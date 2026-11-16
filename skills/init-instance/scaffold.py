@@ -36,7 +36,8 @@ def main():
 
     subs = {"{{company}}": a.company, "{{unit}}": a.unit, "{{language}}": a.language}
     written = []
-    for src in sorted(p for p in TEMPLATES.rglob("*") if p.is_file()):
+    # Running the tests leaves __pycache__ next to templates/scripts/trace.py.
+    for src in sorted(p for p in TEMPLATES.rglob("*") if p.is_file() and "__pycache__" not in p.parts):
         rel = src.relative_to(TEMPLATES).as_posix()
         dst = a.target / rel
         owned = rel.startswith(ENGINE_OWNED)
